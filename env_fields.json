@@ -1,0 +1,124 @@
+[
+  {
+    "name": "ESI_SSO_CLIENT_ID",
+    "label": "Client ID",
+    "type": "text",
+    "placeholder": "1AbcdefgNiJ................",
+    "help": "Ваш ClientID в Esi Sso"
+  },
+  {
+    "name": "ESI_SSO_CLIENT_SECRET",
+    "label": "Client Secret",
+    "type": "text",
+    "placeholder": "1AbcdefgNiJ................jhasklghlakshfshflkh",
+    "help": "Ваш Client Secret в ESi Sso"
+  },
+  {
+    "name": "ESI_SSO_CALLBACK_URL",
+    "label": "Callback URL",
+    "type": "url",
+    "placeholder": "https://xyz.niceplatform.ru/sso/callback",
+    "help": "Ссылка перенаправления для EVE Online на Ваш портал"
+  },
+  {
+    "name": "ENABLE_DISCORD",
+    "label": "Использовать приложение с Discord",
+    "type": "select",
+    "options": {
+      "True": "Включён",
+      "False": "Выключен"
+    },
+    "default_value":"Выключен",
+    "help": "Вкл/Выкл приложение discord"
+  },
+  {
+    "name": "DISCORD_APPLICATION_ID",
+    "label": "Client ID",
+    "type": "integer",
+    "placeholder": "1234567890",
+    "help": "ID приложения Discord на портале разработчика"
+  },
+  {
+    "name": "DISCORD_CLIENT_SECRET",
+    "label": "Client Secret",
+    "type": "text",
+    "placeholder": "XXXXXXXXXX",
+    "help": "Ваш Client Secret приложения Discord"
+  },
+  {
+    "name": "DISCORD_REDIRECT_URI",
+    "label": "Ссылка для перенаправления",
+    "type": "url",
+    "placeholder": "https://xyz.niceplatform.ru/discord/callback/",
+    "help": "Ссылка перенаправления на Ваш портал после авторизации в Discord"
+  },
+  {
+    "name": "DISCORD_GUILD_ID",
+    "label": "ID Вашего сервера Discord",
+    "type": "integer",
+    "placeholder": "1234567890",
+    "help": "ID Вашего сервера в Discord"
+  },
+  {
+    "name": "DISCORD_BOT_TOKEN",
+    "label": "Токен бота",
+    "type": "text",
+    "placeholder": "XXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "help": "Токен Вашего приложения Discord"
+  },
+  {
+    "name": "ENABLE_STRUCTURES",
+    "label": "Использовать приложение structures",
+    "type": "select",
+    "options": {
+      "True": "Включён",
+      "False": "Выключен"
+    },
+    "default_value":"Выключен",
+    "help": "Вкл/Выкл приложение structures"
+  },
+  {
+    "name": "ENABLE_KILLBOARD_STATISTIC",
+    "label": "Использовать приложение killboard",
+    "type": "select",
+    "options": {
+      "True": "Включён",
+      "False": "Выключен"
+    },
+    "default_value":"Выключен",
+    "help": "Вкл/Выкл приложение killboard"
+  },
+  {
+    "name": "ENABLE_MESSENGER",
+    "label": "Использовать приложение messenger",
+    "type": "select",
+    "options": {
+      "True": "Включён",
+      "False": "Выключен"
+    },
+    "default_value":"Выключен",
+    "help": "Вкл/Выкл приложение messenger"
+  },
+  {
+    "name": "ENABLE_FITTINGS",
+    "label": "Использовать приложение fittings",
+    "type": "select",
+    "options": {
+      "True": "Включён",
+      "False": "Выключен"
+    },
+    "default_value":"Выключен",
+    "help": "Вкл/Выкл приложение fittings"
+  },
+  {
+    "name": "ENABLE_MAIL_NOTIFY",
+    "label": "Использовать приложение mail_notify",
+    "type": "select",
+    "options": {
+      "True": "Включён",
+      "False": "Выключен"
+    },
+    "default_value":"Выключен",
+    "help": "Вкл/Выкл приложение mail_notify"
+  }
+]

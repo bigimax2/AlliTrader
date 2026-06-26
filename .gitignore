@@ -1,0 +1,65 @@
+# --- Django ---
+*.pyc
+__pycache__/
+db.sqlite3
+media/
+#staticfiles/
+
+# --- Environments ---
+.env
+.env.local
+.env.development
+.env.production
+
+# --- IDE / Editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Python ---
+.DS_Store
+pip-log.txt
+pip-log-*.log
+!log/
+!log/.gitkeep
+log/*.log
+
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# --- Build ---
+dist/
+build/
+*.egg-info/
+*.egg
+
+# --- Docker ---
+.dockerignore
+docker-compose.override.yml
+
+# --- Celery ---
+celerybeat-schedule*
+
+# --- OS ---
+Thumbs.db
+/authenticated/migrations/
+/discord/migrations/
+/eveonline/migrations/
+/groupmanagement/migrations/
+
+/tests/
+
+#static/
+esi_metods.py
+*/migrations/
+celery_beat_supervisor.conf
+celery_supervisor.conf

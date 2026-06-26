@@ -1,0 +1,48 @@
+{% extends "index.html" %}
+{%  block content %}
+
+<h1 style="text-align: center ; color: var(--text-color)">Заявки в группу: {{ group.group.name }}</h1>
+    {% if applications %}
+        {% for app in applications %}
+            <div class="col">
+                <div class="w-100"></div>
+                <div class="row" style="background: #9dc5dc;font-size: 25px;margin-top: 10px;height: 50px;border-radius: 5px;margin-right: -12px;flex-wrap: wrap;align-content: center">
+                    <div class="col" style="text-align: center;">
+                        <div class="row" style="margin-right: -12px;">
+                            <div class="col" style="text-align: center;">
+                                <span style="font-size: 20px; color: var(--text-color);">Пользователь: {{ app.user.username }} ({{ app.created_at|date:"d.m.Y H:i" }}) —
+                                <strong>{{ app.get_status_display }}</strong>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col text-nowrap text-start justify-content-end col-2">
+                            {% if app.status == 'pending' %}
+                                <form method="post" action="{% url 'groupmanagement:approve_application' app.id %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-primary">Принять</button>
+                                </form>
+                                <form method="post" action="{% url 'groupmanagement:reject_application' app.id %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-danger">Отклонить</button>
+                                </form>
+                            {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+    <a href="{% url 'groupmanagement:groups' %}" style="color: var(--text-color);">Назад к группам</a>
+
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                        <p style="color: {% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}orange{% else %}green{% endif %};">
+                            {{ message }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+{% endblock content %}

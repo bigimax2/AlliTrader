@@ -1,0 +1,656 @@
+{% extends 'index.html' %}
+{% block page_styles %}
+<style>
+    /* Стили для уведомлений */
+    .notification-item {
+        padding: 8px 16px;
+        transition: background-color 0.3s ease;
+        font-size: 14px;
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .notification-item:hover {
+        background-color: var(--hover-bg);
+    }
+    
+    [data-theme="dark"] .notification-item {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+    }
+    
+    /* Стили для непрочитанных уведомлений */
+    .notification-item.unread {
+        background-color: var(--hover-bg);
+        border-left: 3px solid var(--active-color);
+    }
+    
+    .notification-item.unread h5 strong {
+        color: var(--text-color);
+        font-weight: 700;
+    }
+    
+    [data-theme="dark"] .notification-item.unread {
+        background-color: var(--hover-bg);
+        border-left: 3px solid var(--active-color);
+    }
+    
+    [data-theme="dark"] .notification-item.unread h5 strong {
+        color: var(--text-color);
+        font-weight: 700;
+    }
+    
+    [data-theme="dark"] .delete-btn:hover {
+        background-color: rgba(220, 53, 69, 0.2);
+        border-color: rgba(220, 53, 69, 0.5);
+    }
+    
+    .notification-actions {
+        padding: 10px 0;
+    }
+    
+    [data-theme="dark"] .notification-actions {
+        filter: brightness(1.2);
+    }
+    
+    /* Кастомные стили для поиска */
+    .sr-input-func {
+        position: relative;
+    }
+    
+    .sr-input-func .fa {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-color);
+        opacity: 0.5;
+    }
+    
+    .sr-input-func .form-control {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+    }
+    
+    .sr-input-func .form-control::placeholder {
+        color: var(--text-color);
+        opacity: 0.5;
+    }
+    
+    [data-theme="dark"] .sr-input-func .fa {
+        color: var(--text-color);
+        opacity: 0.7;
+    }
+    
+    [data-theme="dark"] .sr-input-func .form-control {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+    }
+    
+    [data-theme="dark"] .sr-input-func .form-control::placeholder {
+        color: var(--text-color);
+        opacity: 0.6;
+    }
+    
+    /* Стили для text-muted в темной теме */
+    .text-muted {
+        color: var(--text-color) !important;
+        opacity: 0.7;
+    }
+    
+    [data-theme="dark"] .text-muted {
+        color: var(--text-color) !important;
+        opacity: 0.6;
+    }
+    
+    /* Стили для лоадера */
+    .loading-spinner {
+        padding: 50px 0;
+        color: var(--text-color);
+    }
+    
+    [data-theme="dark"] .loading-spinner {
+        color: var(--text-color);
+    }
+    
+    [data-theme="dark"] .loading-spinner .spinner-border {
+        border-color: currentColor;
+        border-right-color: transparent;
+    }
+    
+    /* Стили для иконки "нет уведомлений" */
+    .icon.nalika-bell {
+        color: var(--text-color);
+        opacity: 0.3;
+    }
+    
+    [data-theme="dark"] .icon.nalika-bell {
+        color: var(--text-color);
+        opacity: 0.3;
+    }
+    
+    /* Позиционирование dropdown для корректного отображения */
+    .notification-actions {
+        position: relative;
+        z-index: 10;
+    }
+    
+    .notification-actions .dropdown-menu {
+        position: absolute !important;
+        top: 100% !important;
+        left: 0 !important;
+        z-index: 1060 !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-top: 2px;
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        min-width: 220px;
+    }
+    
+    .notification-actions .dropdown-menu .dropdown-item {
+        color: var(--text-color);
+        padding: 8px 16px;
+        font-size: 14px;
+        white-space: normal;
+        line-height: 1.4;
+    }
+    
+    .notification-actions .dropdown-menu .dropdown-item:hover {
+        background-color: var(--hover-bg);
+        color: var(--active-color);
+    }
+    
+    .notification-actions .dropdown-menu .dropdown-item:active {
+        background-color: var(--active-color);
+        color: #fff;
+    }
+    
+    .notification-actions .dropdown-menu .dropdown-divider {
+        border-top: 1px solid var(--border-color);
+    }
+    
+    /* Стили для кнопок действий с уведомлениями */
+    .delete-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+        border-radius: 4px;
+        background-color: transparent;
+    }
+    
+    .delete-btn:hover {
+        background-color: rgba(220, 53, 69, 0.1);
+        border-color: rgba(220, 53, 69, 0.3);
+    }
+    
+    [data-theme="dark"] .delete-btn {
+        background-color: transparent;
+    }
+    
+    [data-theme="dark"] .delete-btn:hover {
+        background-color: rgba(220, 53, 69, 0.2);
+        border-color: rgba(220, 53, 69, 0.5);
+    }
+    
+    [data-theme="dark"] .notification-actions .dropdown-menu {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+    }
+    
+    [data-theme="dark"] .notification-actions .dropdown-menu .dropdown-item {
+        color: var(--text-color);
+    }
+    
+    [data-theme="dark"] .notification-actions .dropdown-menu .dropdown-item:hover {
+        background-color: var(--hover-bg);
+        color: var(--active-color);
+    }
+    
+    /* Стили для кнопки "Прочитано" */
+    .mark-read-btn {
+        background-color: transparent;
+    }
+    
+    [data-theme="dark"] .mark-read-btn {
+        background-color: transparent;
+    }
+    
+    [data-theme="dark"] .mark-read-btn:hover {
+        background-color: rgba(13, 110, 253, 0.2);
+        border-color: rgba(13, 110, 253, 0.5);
+    }
+    
+    .sparkline13-graph {
+        position: relative;
+        overflow: visible !important;
+    }
+    
+    .sparkline13-list {
+        position: relative;
+        overflow: visible !important;
+    }
+    
+    .sparkline13-hd {
+        position: relative;
+        overflow: visible !important;
+    }
+    
+    /* Стили для заголовка карточки */
+    .sparkline13-hd .main-sparkline13-hd {
+        background-color: var(--card-header-bg);
+        color: var(--text-color);
+    }
+    
+    [data-theme="dark"] .sparkline13-hd .main-sparkline13-hd {
+        background-color: var(--card-header-bg);
+        color: var(--text-color);
+    }
+    
+    .sparkline13-hd .sparkline13-outline {
+        color: var(--text-color);
+    }
+    
+    [data-theme="dark"] .sparkline13-hd .sparkline13-outline {
+        color: var(--text-color);
+    }
+</style>
+{% endblock page_styles %}
+
+{% block content %}
+    <div class="all-content-wrapper" style="margin-left: 15px">
+        <div class="container-fluid">
+            <div class="row d-flex align-items-center">
+                <div class="col-12">
+                    <div class="breadcome-list single-page-breadcome d-flex align-items-center" style="min-height: auto; padding: 10px 0;">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="breadcome-heading d-flex align-items-center">
+                                    <form role="search" class="sr-input-func mb-0">
+                                        <input type="text" placeholder="Поиск..." class="form-control search-int" id="notification-search" style="background-color: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color);">
+                                        <a href="#" style="color: var(--text-color); opacity: 0.7;"><i class="fas fa-search"></i></a>
+                                    </form>
+                                </div>
+                            </div>
+                            
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="sparkline13-list">
+                        <div class="sparkline13-hd">
+                            <div class="main-sparkline13-hd">
+                                <h1>Уведомления</h1>
+                                
+                            </div>
+                        </div>
+
+                        <div class="sparkline13-graph">
+                            <div class="notification-actions mb-3">
+                                <button id="mark-all-read" class="btn btn-success btn-sm" style="background-color: var(--active-color); border-color: var(--active-color);">
+                                    <i class="fas fa-check icon-wrap"></i> Отметить все как прочитанные
+                                </button>
+                                <button id="delete-all" class="btn btn-danger btn-sm ms-2" style="background-color: var(--slot-low-bg); border-color: var(--slot-low-border);">
+                                    <i class="fas fa-trash"></i> Удалить все
+                                </button>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" style="background-color: var(--card-bg); color: var(--text-color); border-color: var(--border-color);">
+                                        Фильтр
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" href="#" data-filter="all" style="color: var(--text-color);">Все</a></li>
+                                        <li><a class="dropdown-item" href="#" data-filter="unread" style="color: var(--text-color);">Непрочитанные</a></li>
+                                        <li><a class="dropdown-item" href="#" data-filter="read" style="color: var(--text-color);">Прочитанные</a></li>
+                                        <li><hr class="dropdown-divider" style="border-top-color: var(--border-color);"></li>
+                                        <li><a class="dropdown-item" href="#" data-filter="user_action" style="color: var(--text-color);">Действия пользователя</a></li>
+                                        {% if user.is_superuser %}
+                                        <li><a class="dropdown-item" href="#" data-filter="system" style="color: var(--text-color);">Системные</a></li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div id="notifications-container" class="list-group">
+                                <!-- Уведомления будут загружены через JavaScript -->
+                                <div class="text-center loading-spinner">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Загрузка...</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="no-notifications" class="text-center mt-5" style="display: none;">
+                                <i class="fas fa-bell" style="font-size: 48px; color: var(--text-color); opacity: 0.3;"></i>
+                                <h3 style="color: var(--text-color);">Нет уведомлений</h3>
+                                <p style="color: var(--text-color); opacity: 0.7;">У вас пока нет уведомлений.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+   
+
+    <script>
+        let allNotifications = [];
+        
+        // Функция для форматирования даты
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) {
+                return 'Неверная дата';
+            }
+            const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+            return date.toLocaleDateString('ru-RU', options);
+        }
+
+        // Функция для получения всех уведомлений
+        async function fetchAllNotifications(searchTerm = '') {
+            try {
+                const params = new URLSearchParams();
+                if (searchTerm) {
+                    params.set('search', searchTerm);
+                }
+                
+                const url = '{% url "authenticated:get_notifications" %}' + '?' + params.toString();
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                allNotifications = data.notifications;
+                displayNotifications(allNotifications);
+                
+                // Скрываем спиннер и показываем контент
+                document.querySelector('.loading-spinner').style.display = 'none';
+                
+                if (allNotifications.length === 0) {
+                    document.getElementById('no-notifications').style.display = 'block';
+                    document.getElementById('no-notifications').innerHTML = searchTerm ? '<i class="fas fa-bell" style="font-size: 48px; color: var(--text-color); opacity: 0.3;"></i><h3 style="color: var(--text-color);">Нет результатов поиска</h3><p style="color: var(--text-color); opacity: 0.7;">Ничего не найдено по запросу: ' + searchTerm + '</p>' : '<i class="fas fa-bell" style="font-size: 48px; color: var(--text-color); opacity: 0.3;"></i><h3 style="color: var(--text-color);">Нет уведомлений</h3><p style="color: var(--text-color); opacity: 0.7;">У вас пока нет уведомлений.</p>';
+                } else {
+                    document.getElementById('no-notifications').style.display = 'none';
+                }
+                
+            } catch (error) {
+                console.error('Ошибка при загрузке уведомлений:', error);
+                document.querySelector('.loading-spinner').style.display = 'none';
+                document.getElementById('no-notifications').style.display = 'block';
+                document.getElementById('no-notifications').innerHTML = '<h3>Ошибка</h3><p>Не удалось загрузить уведомления.</p>';
+            }
+        }
+
+        // Функция для отображения уведомлений
+        function displayNotifications(notifications) {
+            const container = document.getElementById('notifications-container');
+            container.innerHTML = '';
+            
+            if (notifications.length === 0) {
+                container.innerHTML = '<div class="list-group-item text-center text-muted">Нет уведомлений по заданному фильтру</div>';
+                return;
+            }
+            
+            notifications.forEach(notification => {
+                const item = document.createElement('a');
+                item.href = '#';
+                item.className = `list-group-item list-group-item-action notification-item ${!notification.is_read ? 'unread' : ''}`;
+                
+                let iconClass = 'fa-bell';
+                let badgeClass = 'secondary';
+                
+                if (notification.is_system) {
+                    iconClass = 'fa-cog';
+                    badgeClass = 'success';
+                } else if (notification.type === 'Действие пользователя') {
+                    badgeClass = 'info';
+                }
+                
+                item.innerHTML = `
+                    <div class="d-flex w-100 justify-content-between align-items-start">
+                        <h5 class="mb-1 flex-grow-1" style="font-size: 14px;">
+                            <span class="badge bg-${badgeClass} me-1" style="font-size: 11px;">${notification.type}</span>
+                            ${!notification.is_read ? '<strong>' : ''}${notification.message}${!notification.is_read ? '</strong>' : ''}
+                        </h5>
+                        <div class="d-flex align-items-start gap-1">
+                            <small class="text-muted mt-0" style="font-size: 12px; color: var(--text-color); opacity: 0.7;">${formatDate(notification.created_at)}</small>
+                            ${!notification.is_read ? `
+                            <button class="btn btn-xs btn-outline-primary mark-read-btn" data-notification-id="${notification.id}" style="padding: 2px 6px; font-size: 10px;">
+                                <i class="fas fa-check" style="font-size: 10px;"></i> Прочитать
+                            </button>
+                            ` : ''}
+                            <button class="btn btn-xs btn-outline-danger delete-btn" data-notification-id="${notification.id}" style="padding: 2px 6px; font-size: 10px;">
+                                <i class="fas fa-trash" style="font-size: 10px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-1">
+                        <span class="badge ${notification.is_read ? 'bg-secondary' : 'bg-primary'}" style="font-size: 11px;">${notification.is_read ? 'Прочитано' : 'Непрочитано'}</span>
+                        ${notification.is_system ? '<span class="badge bg-success ms-1" style="font-size: 11px;">Системное</span>' : ''}
+                    </div>
+                `;
+                
+                // Добавляем обработчик клика для отметки как прочитанного
+                item.addEventListener('click', async function(e) {
+                    // Если клик по кнопке "Прочитано", игнорируем
+                    if (e.target.closest('.mark-read-btn')) {
+                        return;
+                    }
+                    
+                    e.preventDefault();
+                    
+                    if (!notification.is_read) {
+                        try {
+                            const response = await fetch(`/mark_notification_read/${notification.id}/`);
+                            const result = await response.json();
+                            
+                            if (result.status === 'success') {
+                                // Обновляем локальный объект
+                                notification.is_read = true;
+                                
+                                // Обновляем внешний вид элемента
+                                item.classList.remove('bg-light');
+                                if (item.querySelector('strong')) {
+                                    item.querySelector('strong').outerHTML = item.querySelector('strong').innerHTML;
+                                }
+                                const badge = item.querySelector('.badge.bg-primary');
+                                if (badge) {
+                                    badge.className = 'badge bg-secondary';
+                                    badge.textContent = 'Прочитано';
+                                }
+                                // Удаляем кнопку "Прочитано"
+                                const readBtn = item.querySelector('.mark-read-btn');
+                                if (readBtn) readBtn.remove();
+                                
+                                // Перезагружаем уведомления, чтобы обновить индикатор
+                                await fetchAllNotifications();
+                            }
+                        } catch (error) {
+                            console.error('Ошибка при отметке уведомления как прочитанного:', error);
+                        }
+                    }
+                });
+                
+                // Добавляем обработчик для кнопки "Прочитано"
+                item.addEventListener('click', async function(e) {
+                    if (e.target.classList.contains('mark-read-btn') || e.target.closest('.mark-read-btn')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        try {
+                            const notificationId = e.target.closest('.mark-read-btn').dataset.notificationId;
+                            const response = await fetch(`/mark_notification_read/${notificationId}/`);
+                            const result = await response.json();
+                            
+                            if (result.status === 'success') {
+                                // Перезагружаем уведомления, чтобы обновить индикатор и список
+                                await fetchAllNotifications();
+                            }
+                        } catch (error) {
+                            console.error('Ошибка при отметке уведомления как прочитанного:', error);
+                        }
+                    }
+                    // Добавляем обработчик для кнопки удаления
+                    else if (e.target.classList.contains('delete-btn') || e.target.closest('.delete-btn')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        if (confirm('Вы уверены, что хотите удалить это уведомление?')) {
+                            try {
+                                const notificationId = e.target.closest('.delete-btn').dataset.notificationId;
+                                const response = await fetch(`/delete_notification/${notificationId}/`);
+                                const result = await response.json();
+                                
+                                if (result.status === 'success') {
+                                    // Перезагружаем уведомления, чтобы обновить список
+                                    await fetchAllNotifications();
+                                }
+                            } catch (error) {
+                                console.error('Ошибка при удалении уведомления:', error);
+                            }
+                        }
+                    }
+                });
+                
+                container.appendChild(item);
+            });
+        }
+
+        // Функция для отметки всех уведомлений как прочитанных
+        async function markAllAsRead() {
+            if (allNotifications.some(n => !n.is_read)) {
+                if (confirm('Вы уверены, что хотите отметить все уведомления как прочитанные?')) {
+                    try {
+                        const response = await fetch('{% url "authenticated:get_notifications" %}?mark_all_read=true');
+                        const data = await response.json();
+                        
+                        if (data.notifications) {
+                            // Перезагружаем уведомления, чтобы обновить индикатор
+                            await fetchAllNotifications();
+                            alert('Все уведомления отмечены как прочитанные!');
+                        }
+                    } catch (error) {
+                        console.error('Ошибка при отметке всех уведомлений как прочитанных:', error);
+                        alert('Не удалось отметить все уведомления как прочитанные. Попробуйте еще раз.');
+                    }
+                }
+            } else {
+                alert('Все уведомления уже прочитаны!');
+            }
+        }
+
+        // Фильтрация уведомлений
+        function filterNotifications(filterType) {
+            let filtered = allNotifications;
+            
+            switch (filterType) {
+                case 'unread':
+                    filtered = allNotifications.filter(n => !n.is_read);
+                    break;
+                case 'read':
+                    filtered = allNotifications.filter(n => n.is_read);
+                    break;
+                case 'user_action':
+                    filtered = allNotifications.filter(n => n.type === 'Действие пользователя');
+                    break;
+                case 'system':
+                    filtered = allNotifications.filter(n => n.is_system);
+                    break;
+                case 'all':
+                default:
+                    filtered = allNotifications;
+                    break;
+            }
+            
+            displayNotifications(filtered);
+        }
+
+        // Поиск по уведомлениям (теперь используется для интерфейса)
+        let searchTimeout;
+        function searchNotifications(searchTerm) {
+            // Очищаем предыдущий таймер
+            clearTimeout(searchTimeout);
+            
+            // Если поле пустое, загружаем все уведомления
+            if (!searchTerm) {
+                searchTimeout = setTimeout(() => {
+                    fetchAllNotifications();
+                }, 300);
+                return;
+            }
+            
+            // Задержка перед выполнением запроса (debounce)
+            searchTimeout = setTimeout(() => {
+                fetchAllNotifications(searchTerm);
+            }, 500);
+        }
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchAllNotifications();
+            
+            // Обработчик кнопки "Отметить все как прочитанные"
+            document.getElementById('mark-all-read').addEventListener('click', markAllAsRead);
+            
+            // Обработчик кнопки "Удалить все"
+            document.getElementById('delete-all').addEventListener('click', async function() {
+                if (allNotifications.length === 0) {
+                    alert('Нет уведомлений для удаления.');
+                    return;
+                }
+                
+                if (confirm('Вы уверены, что хотите удалить ВСЕ уведомления? Это действие нельзя будет отменить!')) {
+                    try {
+                        const response = await fetch('{% url "authenticated:delete_all_notifications" %}');
+                        const result = await response.json();
+                        
+                        if (result.status === 'success') {
+                            alert('Все уведомления удалены!');
+                            await fetchAllNotifications();
+                        } else {
+                            alert('Ошибка при удалении уведомлений: ' + result.message);
+                        }
+                    } catch (error) {
+                        console.error('Ошибка при удалении всех уведомлений:', error);
+                        alert('Не удалось удалить уведомления. Попробуйте еще раз.');
+                    }
+                }
+            });
+            
+            // Обработчики фильтров
+            document.querySelectorAll('.dropdown-menu a[data-filter]').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const filter = this.getAttribute('data-filter');
+                    
+                    // Обновляем текст кнопки фильтра
+                    const dropdownButton = this.closest('.btn-group').querySelector('button');
+                    dropdownButton.innerHTML = `${this.textContent}`;
+                    
+                    filterNotifications(filter);
+                });
+            });
+            
+            // Обработчик поиска
+            const searchInput = document.getElementById('notification-search');
+            searchInput.addEventListener('input', function() {
+                searchNotifications(this.value);
+            });
+            
+            // Обработчик клика на иконку поиска для очистки
+            const searchIcon = searchInput.nextElementSibling;
+            searchIcon.addEventListener('click', function(e) {
+                e.preventDefault();
+                searchInput.value = '';
+                searchNotifications('');
+                searchInput.focus();
+            });
+            
+            // Периодическое обновление каждые 60 секунд
+            setInterval(fetchAllNotifications, 60000);
+        });
+    </script>
+{% endblock content %}

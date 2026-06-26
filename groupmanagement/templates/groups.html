@@ -1,0 +1,67 @@
+{% extends 'index.html' %}
+{%  block content %}
+
+    <div class="col">
+    <h1 style="text-align: center; color: var(--text-color)">Мои группы</h1>
+        {% if has_user_groups %}
+
+        {% for group in user_groups %}
+            <div class="w-100"></div>
+                <div class="row" style="background: #9dc5dc;font-size: 25px;margin-top: 10px;height: 50px;border-radius: 5px;margin-right: -12px;flex-wrap: wrap;align-content: center; --bs-gutter-x: 0;">
+                        <div class="col col-2" style="text-align: center;">
+                            <div class="row" style="margin-right: -12px;">
+                                <div class="col" style="text-align: center;">
+                                    <span style="font-size: 20px; color: var(--text-color);">{{ group.group.name }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col" style="font-size: 23px;margin-top: 4px;">
+                            <span style="font-size: 15px; color: var(--text-color);">{{ group.group.description }}</span>
+                        </div>
+                        <div class="col text-nowrap text-start justify-content-end col-4">
+                            <form method="post" action="{% url 'groupmanagement:leave_group' group.group.id %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-primary">Покинуть</button>
+                            </form>
+                            {% if group.is_leader %}
+                                <a href="{% url 'groupmanagement:group_members' group.group.id %}" class="btn btn-warning">Управление составом</a>
+                                <a href="{% url 'groupmanagement:group_applications' group.group.id %}" class="btn btn-warning">
+                                    Управление заявками
+                                </a>
+                            {% endif %}
+                        </div>
+                </div>
+
+        {% endfor %}
+            {% else %}
+        <p style="color: var(--text-color); text-align: center">Вы не состоите ни в одной группе.</p>
+        {% endif %}
+    </div>
+    <br>
+    <h1 style="text-align: center; color: var(--text-color)">Доступные группы</h1>
+    {% if has_available_groups %}
+        {% for group in available_groups %}
+            <div class="col">
+                <div class="w-100"></div>
+                <div class="row" style="background: #9dc5dc;font-size: 25px;margin-top: 10px;height: 50px;border-radius: 5px;margin-right: -12px;">
+                    <div class="col-2">
+                        <div class="row" style="margin-right: -12px;">
+                            <div class="col" style="text-align: center;"><span style="font-size: 20px; color: var(--text-color);">{{ group.group.name }}</span></div>
+                        </div>
+                    </div>
+                    <div class="col" style="font-size: 23px;margin-top: 4px;"><span style="font-size: 15px; color: var(--text-color);">{{ group.group.description }}</span></div>
+                    <div class="text-nowrap text-start justify-content-end col-2">
+                        <form method="post" action="{% url 'groupmanagement:apply_to_group' group.group.id %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary">Подать заявку</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+
+        <p style="color: var(--text-color); text-align: center">Нет доступных Вам групп.</p>
+    {% endif %}
+
+{% endblock content %}

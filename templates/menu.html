@@ -1,0 +1,148 @@
+
+
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top navbar-top">
+    <div class="container-fluid">
+        <button class="menu-toggle-desktop" id="menuToggleDesktop" aria-label="Toggle sidebar">
+            ☰
+        </button>
+        <button class="menu-toggle-mobile" id="menuToggleMobile" aria-label="Toggle sidebar">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="d-flex align-items-center">
+            <a class="navbar-brand" href="#">Мой Сайт</a>
+        </div>
+        <button class="theme-toggle btn btn-link text-white ms-2" id="themeToggle" aria-label="Toggle theme">
+            <i class="bi bi-moon d-none" id="themeIcon"></i>
+            <span class="theme-icon">🌙</span>
+        </button>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarContent">
+            <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                <!-- Иконка писем (SVG) -->
+                <li class="nav-item dropdown position-relative me-2">
+                    <a class="nav-link position-relative" href="#" id="messagesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-envelope" viewBox="0 0 16 16">
+                          <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1zm13 2.383-4.708 2.825L15 11.105zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741M1 11.105l4.708-2.897L1 5.383z"></path>
+                        </svg>
+                        {% if unread_messages_count > 0 %}
+                            <span class="position-absolute top-60 start-100 translate-middle p-1 border border-light rounded-circle bg-danger text-white" style="font-size: 0.65rem;">
+
+                            </span>
+                        {% endif %}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="messagesDropdown">
+                        <li><h6 class="dropdown-header">Входящие</h6></li>
+                        {% if latest_messages %}
+                            {% for msg in latest_messages %}
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center" href="">
+                                        <div>
+                                            <div class="small text-truncate">{{ msg.name }}</div>
+                                            <div class="text-muted small">{{ msg.unread_count }} непрочитанных</div>
+                                        </div>
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        {% else %}
+                            <li><a class="dropdown-item" href="#">Нет новых писем</a></li>
+                        {% endif %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-center" href="">Все письма</a></li>
+                    </ul>
+                </li>
+
+                <!-- Иконка сообщений (SVG) -->
+                <li class="nav-item dropdown position-relative me-2">
+                    <a class="nav-link position-relative" href="#" id="notificationsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-bell" viewBox="0 0 16 16">
+                          <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2M8 1.918l-.797.161A4 4 0 0 0 4 6c0 .628-.134 2.197-.459 3.742-.16.767-.376 1.566-.663 2.258h10.244c-.287-.692-.502-1.49-.663-2.258C12.134 8.197 12 6.628 12 6a4 4 0 0 0-3.203-3.92zM14.22 12c.223.447.481.801.78 1H1c.299-.199.557-.553.78-1C2.68 10.2 3 6.88 3 6c0-2.42 1.72-4.44 4.005-4.901a1 1 0 1 1 1.99 0A5 5 0 0 1 13 6c0 .88.32 4.2 1.22 6"></path>
+                        </svg>
+                        {% if unread_notifications_count > 0 %}
+                            <span class="position-absolute top-60 start-100 translate-middle p-1 border border-light rounded-circle bg-danger text-white"
+                                  style="font-size: 0.6rem; margin-left: -4px;" id="unread-notifications-count">
+
+                            </span>
+                        {% else %}
+                            <span id="unread-notifications-count" style="display: none;"></span>
+                        {% endif %}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationsDropdown">
+
+
+                        {% if latest_notifications %}
+                            {% for notif in latest_notifications %}
+                                <li class="mb-2">
+                                    <div class="card border-0 bg-transparent p-0">
+                                        <div class="card-body p-0">
+                                            <div class="small fw-bold text-truncate" title="{{ notif.message }}">
+                                                {{ notif.message|truncatechars:70 }}
+                                            </div>
+                                            {% if notif.time_ago %}
+                                                <div class="text-muted small mt-1">{{ notif.time_ago }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        {% else %}
+                            <li class="text-center text-muted small py-2">Нет новых уведомлений</li>
+                        {% endif %}
+
+
+                        {% if latest_notifications %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-center" href="{% url 'authenticated:notifications_page' %}">Все уведомления</a></li>
+                        {% endif %}
+                    </ul>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Профиль</a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Выпадающее меню
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                        <li><a class="dropdown-item" href="#">Действие 1</a></li>
+                        <li><a class="dropdown-item" href="#">Действие 2</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'authenticated:logout' %}">Выход</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- Боковое меню -->
+<nav id="sidebar" class="sidebar">
+    <div class="sidebar-logo">
+        <img src="https://images.evetech.net/characters/{{ main_personage.character_id }}/portrait?tenant=tranquility&size=128" alt="Логотип" class="sidebar-logo-img">
+    </div>
+    <ul class="nav flex-column">
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'authenticated:profile' %}">
+                <span class="me-2">🏠</span>
+                <span>Мои персонажи</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'groupmanagement:groups' %}">
+                <span class="me-2">👥</span>
+                <span>Группы</span>
+            </a>
+        </li>
+        {% for app in user_apps %}
+        <li class="nav-item">
+            <a class="nav-link" href="{% url app.url %}">
+                <span class="me-2">{{ app.icon }}</span>
+                <span class="mini-click-non"> {{ app.name }}</span>
+            </a>
+        </li>
+        {% endfor %}
+
+    </ul>
+</nav>

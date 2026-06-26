@@ -1,0 +1,94 @@
+{% extends "index.html" %}
+{% block content %}
+
+<div class="container-fluid px-3 py-2">
+    <div class="row g-3">
+        <!-- Основной персонаж -->
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm rounded-4 border-0">
+                <div class="card-body text-center">
+                    <h2 class="mb-4">Главный персонаж</h2>
+
+                    <div class="row justify-content-center align-items-center g-4 mb-3">
+                        <!-- Корпорация -->
+                        <div class="col-4 col-sm-3 text-center">
+                            <img class="rounded-circle mb-2"
+                                 src="https://images.evetech.net/corporations/{{ main_pers.corp.corporation_id }}/logo?tenant=tranquility&size=256"
+                                 width="80" height="80" alt="Corp Logo">
+                            <div class="small text-truncate" title="{{ main_pers.corp.name }}">{{ main_pers.corp.name }}</div>
+                        </div>
+
+                        <!-- Персонаж -->
+                        <div class="col-4 col-sm-3 text-center">
+                            <img class="rounded-circle mb-2"
+                                 src="https://images.evetech.net/characters/{{ main_pers.character_id }}/portrait?tenant=tranquility&size=256"
+                                 width="80" height="80" alt="Character Portrait">
+                            <div class="small text-truncate" title="{{ main_pers.name }}">{{ main_pers.name }}</div>
+                        </div>
+
+                        <!-- Альянс (если есть) -->
+                        {% if main_pers.corp.alliance %}
+                        <div class="col-4 col-sm-3 text-center">
+                            <img class="rounded-circle mb-2"
+                                 src="https://images.evetech.net/Alliance/{{ main_pers.corp.alliance.alliance_id }}_128.png"
+                                 width="80" height="80" alt="Alliance Logo">
+                            <div class="small text-truncate" title="{{ main_pers.corp.alliance.name }}">{{ main_pers.corp.alliance.name }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Группа и состояние -->
+                    <div class="row g-3 mt-2">
+                        <div class="col-6">
+                            <h5>Группа</h5>
+                            {% for g in user_groups %}
+                                <div class="badge bg-warning text-dark mb-1">{{ g.group.name }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-6">
+                            <h5>Состояние</h5>
+                            <div class="badge bg-success">{{ main_pers.userprofile.state.name }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Кнопка добавления персонажа -->
+                    <div class="mt-4">
+                        <a href="{% url 'authenticated:get-token' %}" class="btn btn-primary w-100" style="font-weight: bold;">
+                            Добавить персонажа
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Альты -->
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm rounded-4 border-0">
+                <div class="card-body">
+                    <h2 class="text-center mb-4">Альты</h2>
+                    <div class="list-group list-group-flush">
+                        {% for ow in o_r %}
+                            {% if ow.character.character_id != user.userprofile.main_character.character_id %}
+                            <div class="list-group-item bg-transparent d-flex align-items-center p-2 mb-2 rounded-3"
+                                 style="border: 1px solid rgba(255,255,255,0.1);">
+                                <img class="rounded-circle me-3 flex-shrink-0"
+                                     src="https://images.evetech.net/characters/{{ ow.character.character_id }}/portrait?tenant=tranquility&size=256"
+                                     width="50" height="50" alt="Portrait">
+                                <div class="flex-grow-1 text-truncate">
+                                    <div class="fw-bold text-white">{{ ow.character.name }}</div>
+                                    <small class="text-muted">{{ ow.character.corp.name }}</small>
+                                </div>
+                                <a href="{% url 'authenticated:change_main_personage' user.id ow.character.character_id %}"
+                                   class="btn btn-sm btn-primary ms-2">
+                                    Установить мейном
+                                </a>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

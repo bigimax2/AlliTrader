@@ -1,0 +1,54 @@
+{% extends 'index.html' %}
+{% load static %}
+{% block content %}
+    <div class="col-sm-12" style="
+        border-width: 1px;
+        border-style: solid;
+        box-shadow: 1px 1px 6px;
+        padding: 30px;
+        text-align: center;
+        background-color: var(--bg-color);
+        position: relative;
+        overflow: hidden;
+        min-height: 80vh; /* Увеличенная минимальная высота */
+        display: flex;
+        flex-direction: column;
+        justify-content: center; /* Центрирование по вертикали */
+    ">
+        <!-- Полупрозрачный фон (водяной знак) -->
+        <div style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('{% static 'messenger/img/logo_NiceCom.png' %}');
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-size: 80%;
+            opacity: 0.1;
+            pointer-events: none;
+            z-index: 1;
+        "></div>
+
+        <!-- Контент поверх фона -->
+        <div style="position: relative; z-index: 2;">
+            <h1 class="page-header text-center" style="color: var(--text-color);">Голосовые/текстовые НЕ ингейм сервисы</h1>
+
+            <div style="margin-top: 50px;">
+                <i class="fas fa-cog fa-spin" style="font-size: 60px; color: var(--text-color); margin-bottom: 20px;"></i>
+                <h3 style="color: var(--text-color);">Мессенджер NiceCom</h3>
+                <p style="font-size: 18px; color: var(--text-color); margin: 20px 0;">
+                    Система мессенджера <strong>NiceCom</strong> в настоящее время находится в стадии разработки.
+                </p>
+                <p style="color: var(--text-color);">
+                    Мы работаем над тем, чтобы вы могли общаться удобно и безопасно.<br>
+                    Возможности по созданию аккаунтов, серверов и приглашений будут доступны позже.
+                </p>
+                <div style="margin-top: 30px; font-size: 14px; color: var(--text-color);">
+                    <em>Обновление от: {{ today|date:"d.m.Y" }}</em>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}
