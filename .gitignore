@@ -61,5 +61,3 @@ Thumbs.db
 #static/
 esi_metods.py
 */migrations/
-celery_beat_supervisor.conf
-celery_supervisor.conf

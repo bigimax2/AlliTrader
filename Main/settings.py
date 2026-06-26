@@ -48,8 +48,6 @@ INSTALLED_APPS = [
     'esi.apps.EsiConfig',
     'authenticated.apps.AutenticatedConfig',
     'groupmanagement.apps.GroupmanagementConfig',
-
-
     'channels',
 
 ]
@@ -62,7 +60,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    #'core.middleware.RequestLoggingMiddleware',
+
 ]
 
 ROOT_URLCONF = 'Main.urls'
@@ -79,7 +77,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'authenticated.context_processors.user_app_access',
-                'authenticated.context_processors.notification_counters',
+                'authenticated.context_processors.notification_counters'
             ],
             'loaders': [
                 'django.template.loaders.filesystem.Loader',
@@ -184,18 +182,6 @@ DISCORD_API_ENDPOINT = 'https://discord.com/api/v10'
 DISCORD_GUILD_ID = os.getenv('DISCORD_GUILD_ID')
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 
-ENABLE_STRUCTURES = os.getenv('ENABLE_STRUCTURES', '').strip().lower() in ('true', 'on', '1', 'yes')
-
-
-ENABLE_KILLBOARD_STATISTIC = os.getenv('ENABLE_KILLBOARD_STATISTIC', '').strip().lower() in ('true', 'on', '1', 'yes')
-
-
-ENABLE_MESSENGER = os.getenv('ENABLE_MESSENGER', '').strip().lower() in ('true', 'on', '1', 'yes')
-
-ENABLE_FITTINGS = os.getenv('ENABLE_FITTINGS', '').strip().lower() in ('true', 'on', '1', 'yes')
-
-ENABLE_MAIL_NOTIFY = os.getenv('ENABLE_MAIL_NOTIFY', '').strip().lower() in ('true', 'on', '1', 'yes')
-
 
 LOGIN_URL = 'authenticated:login'
 LOGIN_REDIRECT_URL = 'authenticated:login'
@@ -223,29 +209,6 @@ CACHES = {
         }
     }
 }
-
-# Отключаем автоматическую загрузку всего подряд
-EVEUNIVERSE_LOAD_DOGMAS = True
-EVEUNIVERSE_MAX_RETRIES = 3
-EVEUNIVERSE_TIMEOUT = 10
-
-EVEUNIVERSE_BULK_METHODS_BATCH_SIZE = 100
-
-EVEUNIVERSE_LOAD_INDUSTRY = False
-EVEUNIVERSE_LOAD_MARKETS = False
-EVEUNIVERSE_LOAD_GRAPHICS = True
-EVEUNIVERSE_LOAD_PROJECTILES = False
-EVEUNIVERSE_LOAD_RENDER = False
-EVEUNIVERSE_LOAD_STARGATES = False
-EVEUNIVERSE_LOAD_STATIONS = False
-EVEUNIVERSE_LOAD_CONSTELLATIONS = False
-EVEUNIVERSE_LOAD_REGIONS = False
-
-# Оставляем только базовые типы, которые могут понадобиться
-EVEUNIVERSE_LOAD_TYPES = True
-EVEUNIVERSE_LOAD_GROUPS = True
-EVEUNIVERSE_LOAD_CATEGORIES = True
-EVEUNIVERSE_LOAD_SOLAR_SYSTEMS = False  # Будем грузить только нужные!
 
 SDE_API_URL = 'https://api.niceplatform.ru/'
 SDE_API_KEY = os.getenv('SDE_API_KEY', '1KOgsy93GmqEEmcpVfFKl9IaHpOVRt9uofyxik11OG2uZJNOd5Ja34tmJ2u5m7X6asVMHHzDHarS1VH91rMm88LTpq0FG9xIuefziT7JgR87RoQkcbrOMx3ISvb4ep1j06kPugZJK844XbGUhuVRcSSdOVwYJ97N3O6o4A0VvNm4TpUVkdeb5lISSZRUrv7UklnRXjkJrdGVstEU8QHxZ5p9AGEu0hH6wqDOzdOKMtDtR9ZV56F3JaOOpoVKjFfz')
