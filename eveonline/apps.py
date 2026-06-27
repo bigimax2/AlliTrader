@@ -26,5 +26,6 @@ class EveonlineConfig(AppConfig):
                   "Corporation",
                   "Mail",
                   "Universe",
+                  "Assets",
                         ]
         )

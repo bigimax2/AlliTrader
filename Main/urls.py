@@ -10,7 +10,7 @@ urlpatterns = [
         path('sso/', include('esi.urls', namespace='esi')),
         path('', include('authenticated.urls', namespace='authenticated')),
         path('', include('groupmanagement.urls', namespace='groupmanagement')),
-
+        path('', include('trader.urls', namespace='trader')),
 ]
 
 if settings.DEBUG:

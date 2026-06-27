@@ -1,0 +1,98 @@
+{% extends 'index.html' %}
+{% block content %}
+    <!-- Секция добавления токена -->
+    <div class="container-fluid px-4 py-3">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-key"></i> Управление токеном</h5>
+                    </div>
+                    <div class="card-body text-center">
+                        <a href="{% url 'trader:get_token_assets' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-plus-circle"></i> Получить токен и ассеты
+                        </a>
+                        <p class="mt-3 text-muted">
+                            Нажмите кнопку ниже, чтобы автоматически получить токен и обновить ассеты персонажа
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Секция отображения ассетов персонажа -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-users"></i> Ассеты персонажа</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover" id="assetsTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Название</th>
+                                        <th>Тип</th>
+                                        <th>Количество</th>
+                                        <th>Стоимость</th>
+                                        <th>Всего</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Данные будут добавлены через JavaScript -->
+                                    <tr>
+                                        <td colspan="6" class="text-center">Загрузка ассетов...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% block page_scripts %}
+    <script>
+        $(document).ready(function() {
+            // TODO: Загрузка ассетов при загрузке страницы
+            // function renderAssets(assets) {
+            //     const tableBody = $('#assetsTable tbody');
+            //     
+            //     if (assets.length === 0) {
+            //         tableBody.html('<tr><td colspan="6" class="text-center">Нет ассетов для отображения</td></tr>');
+            //         return;
+            //     }
+            //     
+            //     tableBody.empty();
+            //     assets.forEach(asset => {
+            //         tableBody.append(`
+            //             <tr>
+            //                 <td>${asset.id}</td>
+            //                 <td>${asset.name}</td>
+            //                 <td>${asset.type}</td>
+            //                 <td>${asset.quantity}</td>
+            //                 <td>${asset.price.toFixed(2)}</td>
+            //                 <td>${(asset.quantity * asset.price).toFixed(2)}</td>
+            //             </tr>
+            //         `);
+            //     });
+            // }
+            
+            // $.ajax({
+            //     url: '/api/assets/',
+            //     method: 'GET',
+            //     success: function(data) {
+            //         renderAssets(data);
+            //     },
+            //     error: function(xhr, status, error) {
+            //         console.error('Ошибка загрузки ассетов:', error);
+            //         $('#assetsTable tbody').html('<tr><td colspan="6" class="text-center">Ошибка загрузки ассетов</td></tr>');
+            //     }
+            // });
+        });
+    </script>
+    {% endblock page_scripts %}
+{% endblock content %}

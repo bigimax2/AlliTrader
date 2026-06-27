@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'authenticated.apps.AutenticatedConfig',
     'groupmanagement.apps.GroupmanagementConfig',
     'channels',
+    'trader.apps.TraderConfig',
 
 ]
 
@@ -217,40 +218,19 @@ SDE_API_KEY = os.getenv('SDE_API_KEY', '1KOgsy93GmqEEmcpVfFKl9IaHpOVRt9uofyxik11
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '[{levelname}] {asctime} {name} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '[{levelname}] {message}',
-            'style': '{',
-        },
-    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
-            'level': 'DEBUG',
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'log' / 'django.log',
-            'formatter': 'verbose',
-            'level': 'DEBUG',
-            'encoding': 'utf-8',
+            'filename': 'log/app.log',
         },
     },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'killboard_statistic': {
-            'handlers': ['console', 'file'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
+    'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG',
     },
 }
+
+ENABLE_TRADER = os.getenv('ENABLE_TRADER', '').strip().lower() in ('true', '1', 'yes')
