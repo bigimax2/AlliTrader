@@ -61,3 +61,4 @@ Thumbs.db
 #static/
 esi_metods.py
 */migrations/
+/.gigacode/
