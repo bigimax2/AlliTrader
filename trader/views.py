@@ -32,7 +32,7 @@ def render_traders(request):
                 from trader.models import Asset
                 assets = Asset.objects.filter(
                     location__location_id__in=location_ids
-                )
+                ).select_related('character', 'type_id', 'location')
                 
                 # Фильтруем по location_flag, если указаны
                 location_flags = form.cleaned_data.get('location_flag', [])
@@ -47,7 +47,21 @@ def render_traders(request):
                     else:
                         assets = assets.filter(is_singleton=False)
                 
-                assets = assets.select_related('character', 'type_id', 'location').order_by('location__location_id', 'type_id')
+                # Фильтруем по category_name, если указан (множественный выбор)
+                category_names = form.cleaned_data.get('category_name', [])
+                if category_names and '' not in category_names:
+                    assets = assets.filter(type_id__category_name__in=category_names)
+                
+                # Фильтруем по group_name, если указан (множественный выбор)
+                group_names = form.cleaned_data.get('group_name', [])
+                # Если в списке только '' или пустой список - не фильтруем по группам
+                if group_names and ('' not in group_names or len(group_names) > 1):
+                    # Фильтруем только по непустым значениям
+                    real_group_names = [g for g in group_names if g]
+                    if real_group_names:
+                        assets = assets.filter(type_id__group_name__in=real_group_names)
+                
+                assets = assets.order_by('location__location_id', 'type_id')
                 
                 logger.info(f"Выбрано локаций: {len(locations_selected)}, ID: {location_ids}")
                 logger.info(f"Найдено ассетов: {assets.count()}")
@@ -106,10 +120,22 @@ def parser_assets(assets, character):
             else:
                 logger.warning(f"Не удалось получить данные для станции ID {item['location_id']}")
         # Создаем или получаем тип предмета
-        type_name = type_data.get(item['type_id'], {}).get('typeName', f"Type {item['type_id']}")
+        type_info = type_data.get(item['type_id'], {})
+        type_name = type_info.get('typeName', f"Type {item['type_id']}")
+        group_id = type_info.get('groupID')
+        group_name = type_info.get('groupName', '')
+        category_id = type_info.get('categoryID')
+        category_name = type_info.get('categoryName', '')
+        
         item_type, _ = EveItemType.objects.update_or_create(
             type_id=item['type_id'],
-            defaults={'type_name': type_name}
+            defaults={
+                'type_name': type_name,
+                'group_id': group_id,
+                'group_name': group_name,
+                'category_id': category_id,
+                'category_name': category_name
+            }
         )
         
         # Создаем или обновляем локацию (чтобы обновлялось имя станции)

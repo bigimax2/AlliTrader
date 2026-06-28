@@ -60,6 +60,34 @@
                                         </small>
                                     </div>
                                 </div>
+                                <div class="col-12">
+                                    <div class="form-group">
+                                        {{ form.category_name.errors }}
+                                        <label for="{{ form.category_name.id_for_label }}" class="form-label form-label-theme">
+                                            <i class="fas fa-cube"></i> {{ form.category_name.label }}
+                                        </label>
+                                        <div class="border rounded p-3 flag-container category-container">
+                                            {{ form.category_name }}
+                                        </div>
+                                        <small class="form-text text-muted locations-help">
+                                            {{ form.category_name.help_text }}
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-group">
+                                        {{ form.group_name.errors }}
+                                        <label for="{{ form.group_name.id_for_label }}" class="form-label form-label-theme">
+                                            <i class="fas fa-layer-group"></i> {{ form.group_name.label }}
+                                        </label>
+                                        <div class="border rounded p-3 flag-container group-container">
+                                            {{ form.group_name }}
+                                        </div>
+                                        <small class="form-text text-muted locations-help">
+                                            {{ form.group_name.help_text }}
+                                        </small>
+                                    </div>
+                                </div>
                             </div>
                             <div class="row mt-3">
                                 <div class="col-12">
@@ -95,10 +123,12 @@
                             <table class="table table-striped table-hover table-theme" id="assetsTable">
                                 <thead class="table-light thead-theme">
                                     <tr>
-                                        <th>ID</th>
+
                                         <th>Локация</th>
                                         <th>Название предмета</th>
-                                        <th>Тип</th>
+
+                                        <th>Категория</th>
+                                        <th>Группа</th>
                                         <th>Количество</th>
                                         <th>Всего</th>
                                     </tr>
@@ -106,10 +136,12 @@
                                 <tbody>
                                     {% for asset in assets %}
                                     <tr>
-                                        <td>{{ asset.item_id }}</td>
+
                                         <td>{{ asset.location.location_name|default:"Неизвестно" }}</td>
                                         <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
-                                        <td>{{ asset.type_id.type_id }}</td>
+
+                                        <td>{{ asset.type_id.category_name|default:"-" }}</td>
+                                        <td>{{ asset.type_id.group_name|default:"-" }}</td>
                                         <td>{{ asset.quantity }}</td>
                                         <td>{{ asset.quantity }}</td>
                                     </tr>
@@ -399,6 +431,63 @@
             background-color: #4dabf7;
             color: #000;
         }
+        
+        /* Стили для category-container и group-container */
+        [data-theme="light"] .category-container, [data-theme="light"] .group-container {
+            background-color: #fff;
+            border: 1px solid #ced4da;
+            color: #212529;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        [data-theme="dark"] .category-container, [data-theme="dark"] .group-container {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.125);
+            color: var(--text-color);
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        [data-theme="light"] .category-container select, [data-theme="light"] .group-container select {
+            background-color: #fff;
+            color: #212529;
+        }
+        
+        [data-theme="dark"] .category-container select, [data-theme="dark"] .group-container select {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+        
+        [data-theme="light"] .category-container option, [data-theme="light"] .group-container option {
+            background-color: #fff;
+            color: #212529;
+            padding: 5px 10px;
+        }
+        
+        [data-theme="dark"] .category-container option, [data-theme="dark"] .group-container option {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            padding: 5px 10px;
+        }
+        
+        [data-theme="light"] .category-container option:hover, [data-theme="light"] .group-container option:hover {
+            background-color: #e9ecef;
+        }
+        
+        [data-theme="dark"] .category-container option:hover, [data-theme="dark"] .group-container option:hover {
+            background-color: var(--hover-bg);
+        }
+        
+        [data-theme="light"] .category-container option:checked, [data-theme="light"] .group-container option:checked {
+            background-color: #0d6efd;
+            color: #fff;
+        }
+        
+        [data-theme="dark"] .category-container option:checked, [data-theme="dark"] .group-container option:checked {
+            background-color: #4dabf7;
+            color: #000;
+        }
     </style>
     {% endblock page_styles %}
 
@@ -417,9 +506,6 @@
                     }
                 });
             });
-            
-            // Загрузка ассетов при загрузке страницы
-            // TODO: Реализовать загрузку ассетов
         });
     </script>
     {% endblock page_scripts %}

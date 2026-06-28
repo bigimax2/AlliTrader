@@ -34,12 +34,20 @@ def get_types_info(type_ids):
         response.raise_for_status()
         result = response.json()
 
-        # Преобразуем список [{'typeID': x, 'typeName': y}, ...] в словарь {x: {'typeName': y}, ...}
+        # Преобразуем список с расширенными данными в словарь
         if isinstance(result, list):
-            return {item['typeID']: {'typeName': item['typeName']} for item in result}
+            return {
+                item['typeID']: {
+                    'typeName': item.get('typeName', ''),
+                    'groupID': item.get('groupID'),
+                    'groupName': item.get('groupName', ''),
+                    'categoryID': item.get('categoryID'),
+                    'categoryName': item.get('categoryName', '')
+                } for item in result
+            }
         return result if isinstance(result, dict) else {}
     except Exception as e:
-        logger.error(f"Ошибка при batch-запросе станций: {e}")
+        logger.error(f"Ошибка при batch-запросе типов: {e}")
         return {}
 
 def get_station_info(station_id):

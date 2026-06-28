@@ -6,6 +6,10 @@ class EveItemType(models.Model):
     """Модель для хранения типов предметов EVE Online"""
     type_id = models.PositiveBigIntegerField(primary_key=True, null=False, blank=False)
     type_name = models.CharField(max_length=255, null=True, blank=True)
+    group_id = models.PositiveBigIntegerField(null=True, blank=True)
+    group_name = models.CharField(max_length=255, null=True, blank=True)
+    category_id = models.PositiveBigIntegerField(null=True, blank=True)
+    category_name = models.CharField(max_length=255, null=True, blank=True)
     published = models.BooleanField(default=True, null=True, blank=True)
 
     class Meta:

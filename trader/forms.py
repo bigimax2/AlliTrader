@@ -1,5 +1,5 @@
 from django import forms
-from .models import EveLocation
+from .models import EveLocation, EveItemType
 
 
 LOCATION_FLAGS = [
@@ -95,6 +95,15 @@ LOCATION_FLAGS = [
     ('Wardrobe', 'Wardrobe'),
 ]
 
+# Получаем уникальные категории и группы для фильтрации
+def get_category_choices():
+    categories = EveItemType.objects.exclude(category_name='').values_list('category_name', flat=True).distinct().order_by('category_name')
+    return [('', 'Все категории')] + [(cat, cat) for cat in categories]
+
+def get_group_choices():
+    groups = EveItemType.objects.exclude(group_name='').values_list('group_name', flat=True).distinct().order_by('group_name')
+    return [('', 'Все группы')] + [(grp, grp) for grp in groups]
+
 
 class LocationSelectForm(forms.Form):
     """Форма для множественного выбора локаций из EveLocation"""
@@ -124,6 +133,22 @@ class LocationSelectForm(forms.Form):
         label='Тип актива',
         widget=forms.Select(attrs={'class': 'form-select'}),
         help_text='Фильтр по типу актива (распакован или нет)'
+    )
+    
+    category_name = forms.MultipleChoiceField(
+        choices=get_category_choices,
+        required=False,
+        label='Категория предмета',
+        widget=forms.SelectMultiple(attrs={'size': '8'}),
+        help_text='Выберите одну или несколько категорий (удерживайте Ctrl для множественного выбора)'
+    )
+    
+    group_name = forms.MultipleChoiceField(
+        choices=get_group_choices,
+        required=False,
+        label='Группа предмета',
+        widget=forms.SelectMultiple(attrs={'size': '8'}),
+        help_text='Выберите одну или несколько групп (удерживайте Ctrl для множественного выбора)'
     )
     
     def clean_locations(self):
