@@ -1,10 +1,8 @@
 import logging
-
 from django.apps import apps
-
 from core.app_task import app_task
 from trader.scopes_for_traders import SCOPES_FOR_TRADERS
-from esi.exceptions import HTTPNotModified
+
 
 logger = logging.getLogger(__name__)
 

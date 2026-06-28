@@ -19,11 +19,11 @@ class EveLocationAdmin(admin.ModelAdmin):
 
 
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ('item_id', 'is_singleton', 'type_id', 'location_id', 'location_type', 'quantity', 'character', 'corporation')
-    list_filter = ('is_singleton', 'location_type', 'location_flag', 'character', 'corporation')
-    search_fields = ('item_id', 'type_id', 'location_id')
+    list_display = ('item_id', 'is_singleton', 'type_id', 'location', 'quantity', 'character', 'corporation')
+    list_filter = ('is_singleton', 'location', 'location_flag', 'character', 'corporation')
+    search_fields = ('item_id', 'type_id', 'location__location_name')
     ordering = ('-item_id',)
-    list_select_related = ('character', 'corporation')
+    list_select_related = ('character', 'corporation', 'location')
 
 
 admin.site.register(Asset, AssetAdmin)

@@ -1,20 +1,77 @@
 {% extends 'index.html' %}
+{% load static %}
 {% block content %}
-    <!-- Секция добавления токена -->
+    <!-- Секция формы выбора локаций -->
     <div class="container-fluid px-4 py-3">
         <div class="row mb-4">
             <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-key"></i> Управление токеном</h5>
+                <div class="card card-theme">
+                    <div class="card-header card-header-theme">
+                        <h5 class="mb-0"><i class="fas fa-map-marker-alt"></i> Выбор локаций</h5>
                     </div>
-                    <div class="card-body text-center">
-                        <a href="{% url 'trader:get_token_assets' %}" class="btn btn-primary btn-lg">
-                            <i class="fas fa-plus-circle"></i> Получить токен и ассеты
-                        </a>
-                        <p class="mt-3 text-muted">
-                            Нажмите кнопку ниже, чтобы автоматически получить токен и обновить ассеты персонажа
-                        </p>
+                    <div class="card-body card-body-theme">
+                        <form method="post">
+                            {% csrf_token %}
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="form-group">
+                                        {{ form.locations.errors }}
+                                        <label for="{{ form.locations.id_for_label }}" class="form-label form-label-theme">
+                                            <i class="fas fa-list-ul"></i> {{ form.locations.label }}
+                                        </label>
+                                        <div class="border rounded p-3 locations-container">
+                                            <div class="mb-3">
+                                                <input type="text" id="locationSearch" class="form-control form-control-sm search-input-theme" placeholder="Поиск по названию станции...">
+                                            </div>
+                                            <div class="locations-list-container">
+                                                {{ form.locations }}
+                                            </div>
+                                        </div>
+                                        <small class="form-text text-muted locations-help">
+                                            {{ form.locations.help_text }}
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-group">
+                                        {{ form.location_flag.errors }}
+                                        <label for="{{ form.location_flag.id_for_label }}" class="form-label form-label-theme">
+                                            <i class="fas fa-filter"></i> {{ form.location_flag.label }}
+                                        </label>
+                                        <div class="border rounded p-3 flag-container">
+                                            {{ form.location_flag }}
+                                        </div>
+                                        <small class="form-text text-muted locations-help">
+                                            {{ form.location_flag.help_text }}
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-group">
+                                        {{ form.is_singleton.errors }}
+                                        <label for="{{ form.is_singleton.id_for_label }}" class="form-label form-label-theme">
+                                            <i class="fas fa-magic"></i> {{ form.is_singleton.label }}
+                                        </label>
+                                        <div class="border rounded p-3 flag-container">
+                                            {{ form.is_singleton }}
+                                        </div>
+                                        <small class="form-text text-muted locations-help">
+                                            {{ form.is_singleton.help_text }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <button type="submit" class="btn btn-success btn-theme">
+                                        <i class="fas fa-save"></i> Сохранить выбор
+                                    </button>
+                                    <a href="{% url 'trader:get_token_assets' %}" class="btn btn-primary btn-theme">
+                                        <i class="fas fa-sync-alt"></i> Обновить ассеты
+                                    </a>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -23,75 +80,346 @@
         <!-- Секция отображения ассетов персонажа -->
         <div class="row">
             <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
+                <div class="card card-theme">
+                    <div class="card-header card-header-theme">
                         <h5 class="mb-0"><i class="fas fa-users"></i> Ассеты персонажа</h5>
                     </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover" id="assetsTable">
-                                <thead class="table-light">
+                    <div class="card-body card-body-theme">
+                        {% if locations_selected %}
+                        <div class="alert alert-info alert-theme">
+                            <i class="fas fa-info-circle"></i> Выбрано локаций: {{ locations_selected|length }}
+                        </div>
+                        {% endif %}
+                        {% if assets %}
+                        <div class="table-responsive table-responsive-theme">
+                            <table class="table table-striped table-hover table-theme" id="assetsTable">
+                                <thead class="table-light thead-theme">
                                     <tr>
                                         <th>ID</th>
-                                        <th>Название</th>
+                                        <th>Локация</th>
+                                        <th>Название предмета</th>
                                         <th>Тип</th>
                                         <th>Количество</th>
-                                        <th>Стоимость</th>
                                         <th>Всего</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <!-- Данные будут добавлены через JavaScript -->
+                                    {% for asset in assets %}
                                     <tr>
-                                        <td colspan="6" class="text-center">Загрузка ассетов...</td>
+                                        <td>{{ asset.item_id }}</td>
+                                        <td>{{ asset.location.location_name|default:"Неизвестно" }}</td>
+                                        <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
+                                        <td>{{ asset.type_id.type_id }}</td>
+                                        <td>{{ asset.quantity }}</td>
+                                        <td>{{ asset.quantity }}</td>
                                     </tr>
+                                    {% endfor %}
                                 </tbody>
                             </table>
                         </div>
+                        {% else %}
+                        <div class="alert alert-warning alert-theme">
+                            <i class="fas fa-exclamation-triangle"></i> Ассеты не загружены. Нажмите "Обновить ассеты" для получения данных.
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    {% block page_styles %}
+    <style>
+        /* Стили для формы выбора локаций с поддержкой тем */
+        [data-theme="light"] .card-theme {
+            background-color: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.125);
+        }
+        
+        [data-theme="dark"] .card-theme {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.125);
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+        }
+        
+        [data-theme="light"] .card-header-theme {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+            color: #212529;
+        }
+        
+        [data-theme="dark"] .card-header-theme {
+            background-color: var(--card-header-bg);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.125);
+            color: var(--text-color);
+        }
+        
+        [data-theme="light"] .card-body-theme {
+            background-color: #ffffff;
+            color: #212529;
+        }
+        
+        [data-theme="dark"] .card-body-theme {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+        
+        [data-theme="light"] .form-label-theme {
+            color: #212529;
+        }
+        
+        [data-theme="dark"] .form-label-theme {
+            color: var(--text-color);
+        }
+        
+        [data-theme="light"] .locations-container {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            color: #212529;
+        }
+        
+        [data-theme="dark"] .locations-container {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.125);
+            color: var(--text-color);
+        }
+        
+        [data-theme="light"] .locations-container label {
+            color: #212529;
+            cursor: pointer;
+        }
+        
+        [data-theme="dark"] .locations-container label {
+            color: var(--text-color);
+            cursor: pointer;
+        }
+        
+        [data-theme="light"] .locations-container label:hover {
+            background-color: #e9ecef;
+        }
+        
+        [data-theme="dark"] .locations-container label:hover {
+            background-color: var(--hover-bg);
+        }
+        
+        [data-theme="light"] .locations-help {
+            color: #6c757d;
+        }
+        
+        [data-theme="dark"] .locations-help {
+            color: var(--text-color);
+        }
+        
+        [data-theme="light"] .btn-theme {
+            color: #fff;
+            background-color: #198754;
+            border-color: #198754;
+        }
+        
+        [data-theme="dark"] .btn-theme {
+            color: #fff;
+            background-color: #198754;
+            border-color: #198754;
+        }
+        
+        [data-theme="light"] .btn-theme:hover {
+            background-color: #157347;
+            border-color: #146c43;
+        }
+        
+        [data-theme="dark"] .btn-theme:hover {
+            background-color: #157347;
+            border-color: #146c43;
+        }
+        
+        [data-theme="light"] .alert-theme {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        
+        [data-theme="dark"] .alert-theme {
+            background-color: var(--card-bg);
+            border-color: rgba(255, 255, 255, 0.125);
+            color: var(--text-color);
+        }
+        
+        [data-theme="light"] .table-responsive-theme {
+            border: 1px solid rgba(0, 0, 0, 0.125);
+        }
+        
+        [data-theme="dark"] .table-responsive-theme {
+            border: 1px solid rgba(255, 255, 255, 0.125);
+        }
+        
+        [data-theme="light"] .table-theme {
+            color: #212529;
+        }
+        
+        [data-theme="dark"] .table-theme {
+            color: var(--text-color);
+        }
+        
+        [data-theme="light"] .table-theme thead th {
+            background-color: #e9ecef;
+            color: #495057;
+        }
+        
+        [data-theme="dark"] .table-theme thead th {
+            background-color: var(--card-header-bg);
+            color: var(--text-color);
+        }
+        
+        [data-theme="light"] .table-theme tbody tr:hover {
+            background-color: rgba(0, 0, 0, 0.075);
+        }
+        
+        [data-theme="dark"] .table-theme tbody tr:hover {
+            background-color: rgba(255, 255, 255, 0.075);
+        }
+        
+        /* Стили для поиска и списка локаций */
+        [data-theme="light"] .search-input-theme {
+            background-color: #fff;
+            border: 1px solid #ced4da;
+            color: #212529;
+        }
+        
+        [data-theme="dark"] .search-input-theme {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.125);
+            color: var(--text-color);
+        }
+        
+        [data-theme="light"] .locations-list-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: #fff;
+        }
+        
+        [data-theme="dark"] .locations-list-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: var(--card-bg);
+        }
+        
+        [data-theme="light"] .locations-list-container select {
+            background-color: #fff;
+            color: #212529;
+        }
+        
+        [data-theme="dark"] .locations-list-container select {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+        
+        [data-theme="light"] .locations-list-container option {
+            background-color: #fff;
+            color: #212529;
+            padding: 5px 10px;
+        }
+        
+        [data-theme="dark"] .locations-list-container option {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            padding: 5px 10px;
+        }
+        
+        [data-theme="light"] .locations-list-container option:hover {
+            background-color: #e9ecef;
+        }
+        
+        [data-theme="dark"] .locations-list-container option:hover {
+            background-color: var(--hover-bg);
+        }
+        
+        [data-theme="light"] .locations-list-container option:checked {
+            background-color: #0d6efd;
+            color: #fff;
+        }
+        
+        [data-theme="dark"] .locations-list-container option:checked {
+            background-color: #4dabf7;
+            color: #000;
+        }
+        
+        /* Стили для flag-container */
+        [data-theme="light"] .flag-container {
+            background-color: #fff;
+            border: 1px solid #ced4da;
+            color: #212529;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        [data-theme="dark"] .flag-container {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.125);
+            color: var(--text-color);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        [data-theme="light"] .flag-container select {
+            background-color: #fff;
+            color: #212529;
+        }
+        
+        [data-theme="dark"] .flag-container select {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+        
+        [data-theme="light"] .flag-container option {
+            background-color: #fff;
+            color: #212529;
+            padding: 5px 10px;
+        }
+        
+        [data-theme="dark"] .flag-container option {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            padding: 5px 10px;
+        }
+        
+        [data-theme="light"] .flag-container option:hover {
+            background-color: #e9ecef;
+        }
+        
+        [data-theme="dark"] .flag-container option:hover {
+            background-color: var(--hover-bg);
+        }
+        
+        [data-theme="light"] .flag-container option:checked {
+            background-color: #0d6efd;
+            color: #fff;
+        }
+        
+        [data-theme="dark"] .flag-container option:checked {
+            background-color: #4dabf7;
+            color: #000;
+        }
+    </style>
+    {% endblock page_styles %}
+
     {% block page_scripts %}
     <script>
         $(document).ready(function() {
-            // TODO: Загрузка ассетов при загрузке страницы
-            // function renderAssets(assets) {
-            //     const tableBody = $('#assetsTable tbody');
-            //     
-            //     if (assets.length === 0) {
-            //         tableBody.html('<tr><td colspan="6" class="text-center">Нет ассетов для отображения</td></tr>');
-            //         return;
-            //     }
-            //     
-            //     tableBody.empty();
-            //     assets.forEach(asset => {
-            //         tableBody.append(`
-            //             <tr>
-            //                 <td>${asset.id}</td>
-            //                 <td>${asset.name}</td>
-            //                 <td>${asset.type}</td>
-            //                 <td>${asset.quantity}</td>
-            //                 <td>${asset.price.toFixed(2)}</td>
-            //                 <td>${(asset.quantity * asset.price).toFixed(2)}</td>
-            //             </tr>
-            //         `);
-            //     });
-            // }
+            // Поиск по названию станции
+            $('#locationSearch').on('keyup', function() {
+                const searchTerm = $(this).val().toLowerCase();
+                $('.locations-list-container select option').each(function() {
+                    const optionText = $(this).text().toLowerCase();
+                    if (optionText.includes(searchTerm)) {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+            });
             
-            // $.ajax({
-            //     url: '/api/assets/',
-            //     method: 'GET',
-            //     success: function(data) {
-            //         renderAssets(data);
-            //     },
-            //     error: function(xhr, status, error) {
-            //         console.error('Ошибка загрузки ассетов:', error);
-            //         $('#assetsTable tbody').html('<tr><td colspan="6" class="text-center">Ошибка загрузки ассетов</td></tr>');
-            //     }
-            // });
+            // Загрузка ассетов при загрузке страницы
+            // TODO: Реализовать загрузку ассетов
         });
     </script>
     {% endblock page_scripts %}

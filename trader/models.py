@@ -4,7 +4,7 @@ from eveonline.models import EveCharacter, EveCorporation
 
 class EveItemType(models.Model):
     """Модель для хранения типов предметов EVE Online"""
-    type_id = models.PositiveIntegerField(primary_key=True, null=False, blank=False)
+    type_id = models.PositiveBigIntegerField(primary_key=True, null=False, blank=False)
     type_name = models.CharField(max_length=255, null=True, blank=True)
     published = models.BooleanField(default=True, null=True, blank=True)
 
@@ -36,12 +36,26 @@ class Asset(models.Model):
     item_id = models.PositiveBigIntegerField(null=False, blank=False, unique=True)
     
     location_flag = models.CharField(max_length=50, null=True, blank=True)
-    location_id = models.PositiveBigIntegerField(null=False, blank=False)
-    location_type = models.CharField(max_length=50, null=True, blank=True)
+    
+    # Связь с локацией для получения имени
+    location = models.ForeignKey(
+        EveLocation,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assets',
+        help_text="Локация, где находится актив"
+    )
     
     quantity = models.IntegerField(null=False, blank=False, default=1)
     
-    type_id = models.PositiveBigIntegerField(null=False, blank=False)
+    type_id = models.ForeignKey(
+        EveItemType,
+        on_delete=models.CASCADE,
+        null=False,
+        blank=False,
+        db_column='type_id'
+    )
     
     # Связи с другими моделями
     character = models.ForeignKey(
@@ -70,11 +84,13 @@ class Asset(models.Model):
         verbose_name_plural = "Активы"
         indexes = [
             models.Index(fields=['is_singleton']),
-            models.Index(fields=['location_id']),
+            models.Index(fields=['location']),
             models.Index(fields=['type_id']),
             models.Index(fields=['character']),
             models.Index(fields=['corporation']),
         ]
 
     def __str__(self):
-        return f"{self.type_id} x{self.quantity} @ {self.location_id}"
+        type_name = self.type_id.type_name if self.type_id else "Неизвестно"
+        location_name = self.location.location_name if self.location else "Неизвестно"
+        return f"{type_name} x{self.quantity} @ {location_name}"

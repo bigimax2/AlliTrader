@@ -18,6 +18,6 @@ def messenger_sidebar_config():
 
     return {
         'name': 'Trader',
-        'icon': '💬',
+        'icon': 'fa-chart-line',
         'url': 'trader:render_traders',
     }

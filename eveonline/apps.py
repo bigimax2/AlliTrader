@@ -1,18 +1,17 @@
 import os.path
-
 from django.apps import AppConfig
-
-#from config.celery_schedule import autodiscover_schedules
 
 
 class EveonlineConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'eveonline'
+    
+    # Аннотация для IDE, чтобы избежать предупреждений о несуществующем атрибуте
+    esi = None
 
     def ready(self):
         from esi.openapi_clients import ESIClientProvider
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        #autodiscover_schedules()
         swagger_path = os.path.join(
             base_dir,'swagger.json'
         )
