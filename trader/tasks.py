@@ -1,4 +1,7 @@
 import logging
+import os
+import subprocess
+from pathlib import Path
 from django.apps import apps
 from core.app_task import app_task
 from trader.scopes_for_traders import SCOPES_FOR_TRADERS
@@ -88,3 +91,89 @@ def get_personage_assets(token_id=None):
         except Exception as e:
             logger.exception(f"Ошибка получения ассетов у {eve_char.name} (ID: {eve_char.character_id}): {str(e)}")
     return True
+
+
+@app_task()
+def deploy_task():
+    """Асинхронная задача для выполнения деплоя"""
+    logger.info("Starting deploy task...")
+    
+    PROJECT_PATH = Path('/var/www/allitrader')
+    VIRTUALENV_PATH = PROJECT_PATH / '.venv'
+    MANAGE_PY = PROJECT_PATH / 'manage.py'
+    LOG_FILE = PROJECT_PATH / 'deploy.log'
+    
+    # Настройка переменных окружения
+    os.environ.setdefault('PROJECT_NAME', 'Main')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Main.settings')
+    
+    try:
+        # 1. git pull
+        logger.info("Updating code from repository...")
+        result = subprocess.run(
+            ['git', 'pull', 'origin', 'master'],
+            cwd=PROJECT_PATH,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        logger.info(f"Git pull result: {result.stdout}")
+        
+        # 2. Установка зависимостей
+        logger.info("Installing dependencies...")
+        pip_bin = VIRTUALENV_PATH / 'bin' / 'pip'
+        result = subprocess.run(
+            [str(pip_bin), 'install', '-r', str(PROJECT_PATH / 'requirements.txt')],
+            cwd=PROJECT_PATH,
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            logger.warning(f"Failed to install dependencies: {result.stderr}")
+        else:
+            logger.info("Dependencies installed successfully")
+        
+        # 3. Применение миграций
+        logger.info("Running migrations...")
+        python_bin = VIRTUALENV_PATH / 'bin' / 'python'
+        result = subprocess.run(
+            [str(python_bin), str(MANAGE_PY), 'migrate', '--noinput'],
+            cwd=PROJECT_PATH,
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            logger.warning(f"Failed to run migrations: {result.stderr}")
+        else:
+            logger.info("Migrations completed")
+        
+        # 4. Сборка статики
+        logger.info("Collecting static files...")
+        result = subprocess.run(
+            [str(python_bin), str(MANAGE_PY), 'collectstatic', '--noinput'],
+            cwd=PROJECT_PATH,
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            logger.warning(f"Failed to collect static: {result.stderr}")
+        else:
+            logger.info("Static files collected")
+        
+        # 5. Перезапуск сервисов
+        logger.info("Restarting services...")
+        result = subprocess.run(
+            ['supervisorctl', 'restart', 'allitrader:*'],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            logger.error(f"Failed to restart services: {result.stderr}")
+            return False
+        
+        logger.info("Deployment completed successfully!")
+        return True
+        
+    except Exception as e:
+        logger.exception(f"Deploy failed with error: {e}")
+        return False

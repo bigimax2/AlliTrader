@@ -20,6 +20,10 @@ if not ENV_PATH.exists():
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 
+# Webhook secret token для auto-deploy системы
+import secrets
+WEBHOOK_SECRET_TOKEN = os.getenv('WEBHOOK_SECRET_TOKEN', secrets.token_urlsafe(32))
+
 DEBUG = True
 
 ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost').split(',') if host.strip()]

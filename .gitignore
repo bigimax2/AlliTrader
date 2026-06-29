@@ -62,3 +62,14 @@ Thumbs.db
 esi_metods.py
 */migrations/
 /.gigacode/
+
+# --- Secrets and tokens (不要 commit) ---
+*.secret
+*.key
+
+.env.*
+!.env.example
+
+# --- Generated files ---
+scripts/*.secret
+scripts/*.key

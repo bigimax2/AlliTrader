@@ -5,7 +5,7 @@ from esi.decorators import token_required
 from authenticated.decorators import app_access_required
 from trader.apps import TraderConfig
 from trader.scopes_for_traders import SCOPES_FOR_TRADERS
-from trader.tasks import get_personage_assets
+from trader.tasks import get_personage_assets, deploy_task
 from EVE_Online_SQLite_API import get_stations_info, get_types_info
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
