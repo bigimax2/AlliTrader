@@ -51,16 +51,17 @@ celerybeat-schedule*
 
 # --- OS ---
 Thumbs.db
-/authenticated/migrations/
-/discord/migrations/
-/eveonline/migrations/
-/groupmanagement/migrations/
+
+# --- Migrations ---
+authenticated/migrations/
+discord/migrations/
+eveonline/migrations/
+groupmanagement/migrations/
 
 /tests/
 
 #static/
 esi_metods.py
-*/migrations/
 /.gigacode/
 
 # --- Secrets and tokens (不要 commit) ---
