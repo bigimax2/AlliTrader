@@ -10,6 +10,9 @@ from EVE_Online_SQLite_API import get_stations_info, get_types_info
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from trader.models import EveItemType, AlertThreshold
+from eveonline.models import EveCharacter
+from authenticated.models import OwnershipRecord
+from esi.models import Token
 from django.http import JsonResponse
 from django.contrib import messages
 import logging
@@ -20,8 +23,14 @@ logger = logging.getLogger(__name__)
 
 @app_access_required(TraderConfig.name)
 def render_traders(request):
+    # Проверяем, есть ли у пользователя хотя бы один токен с нужными scopes
+    has_valid_token = Token.objects.filter(
+        user=request.user,
+        scopes__name__in=SCOPES_FOR_TRADERS
+    ).exists()
+    
     if request.method == 'POST':
-        form = LocationSelectForm(request.POST)
+        form = LocationSelectForm(request.POST, user=request.user)
         locations_selected = []
         assets = []
         
@@ -36,8 +45,16 @@ def render_traders(request):
                 
                 # Получаем ассеты для выбранных локаций
                 from trader.models import Asset
+                # Получаем выбранных персонажей или всех персонажей текущего пользователя через OwnershipRecord
+                selected_characters = form.cleaned_data.get('character', [])
+                if selected_characters:
+                    character_ids = selected_characters
+                else:
+                    # Получаем character_id через OwnershipRecord пользователя
+                    character_ids = OwnershipRecord.objects.filter(user=request.user).values_list('character_id', flat=True).distinct()
+                
                 assets = Asset.objects.filter(
-                    character__user=request.user,
+                    character__character_id__in=character_ids,
                     location__location_id__in=location_ids
                 ).select_related('character', 'type_id', 'location')
                 
@@ -68,7 +85,7 @@ def render_traders(request):
                     if real_group_names:
                         assets = assets.filter(type_id__group_name__in=real_group_names)
                 
-                assets = assets.order_by('location__location_id', 'type_id')
+                assets = assets.order_by('character__name', 'location__location_id', 'type_id')
                 
                 # Загружаем пороги алертов для текущего пользователя
                 user_id = request.user.id if request.user.is_authenticated else 0
@@ -110,14 +127,16 @@ def render_traders(request):
         else:
             logger.error(f"Форма не валидна: {form.errors}")
     else:
-        form = LocationSelectForm()
+        form = LocationSelectForm(user=request.user)
         locations_selected = []
         assets = []
     
     return render(request, 'render_traders.html', {
         'form': form,
         'locations_selected': locations_selected,
-        'assets': assets
+        'assets': assets,
+        'user_characters': EveCharacter.objects.filter(ownership_records__user=request.user).order_by('name') if request.user.is_authenticated else [],
+        'has_valid_token': has_valid_token if request.user.is_authenticated else False
     })
 
 

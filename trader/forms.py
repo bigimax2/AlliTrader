@@ -1,5 +1,17 @@
 from django import forms
 from .models import EveLocation, EveItemType, AlertThreshold
+from eveonline.models import EveCharacter
+from authenticated.models import OwnershipRecord
+
+
+def get_character_choices(user):
+    """Получаем выбор персонажей пользователя через OwnershipRecord"""
+    if user and user.is_authenticated:
+        # Получаем character_id через OwnershipRecord пользователя
+        character_ids = OwnershipRecord.objects.filter(user=user).values_list('character_id', flat=True).distinct()
+        characters = EveCharacter.objects.filter(character_id__in=character_ids).order_by('name')
+        return [(char.character_id, char.name) for char in characters]
+    return []
 
 
 LOCATION_FLAGS = [
@@ -150,6 +162,23 @@ class LocationSelectForm(forms.Form):
         widget=forms.SelectMultiple(attrs={'size': '8'}),
         help_text='Выберите одну или несколько групп (удерживайте Ctrl для множественного выбора)'
     )
+    
+    character = forms.MultipleChoiceField(
+        choices=[],
+        required=False,
+        label='Персонаж',
+        widget=forms.SelectMultiple(attrs={'size': '8'}),
+        help_text='Выберите одного или нескольких персонажей (удерживайте Ctrl для множественного выбора)'
+    )
+    
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        # Заполняем список персонажей текущего пользователя через OwnershipRecord
+        if user and user.is_authenticated:
+            character_ids = OwnershipRecord.objects.filter(user=user).values_list('character_id', flat=True).distinct()
+            characters = EveCharacter.objects.filter(character_id__in=character_ids).order_by('name')
+            self.fields['character'].choices = [(char.character_id, char.name) for char in characters]
     
     def clean_locations(self):
         """Валидация выбраных локаций"""
