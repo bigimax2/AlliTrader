@@ -1,11 +1,10 @@
 import logging
-import os
-import subprocess
-from pathlib import Path
 from django.apps import apps
 from core.app_task import app_task
 from trader.scopes_for_traders import SCOPES_FOR_TRADERS
-
+import os
+import subprocess
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

@@ -15,12 +15,14 @@
 
 ### Django Application (trader/)
 - [x] `trader/views/webhook_handler.py` (2999 bytes)
+- [x] `trader/views.py` (обновлен - добавлен импорт webhook_deploy)
 - [x] `trader/urls.py` (обновлен - добавлен webhook)
 - [x] `trader/tasks.py` (обновлен - добавлен deploy_task)
-- [x] `trader/__init__.py` (обновлен - экспортирует webhook_deploy)
+- [x] `trader/__init__.py` (обновлен - без импорта, чтобы избежать AppRegistryNotReady)
 
 ### Configuration
 - [x] `Main/settings.py` (обновлен - добавлен WEBHOOK_SECRET_TOKEN)
+- [x] `Main/celery.py` (создан - конфигурация Celery)
 - [x] `.gitignore` (обновлен - исключает секреты)
 
 ### Documentation

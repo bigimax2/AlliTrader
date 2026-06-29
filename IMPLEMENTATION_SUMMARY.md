@@ -15,13 +15,14 @@
 
 #### 2. Django Application (trader/)
 - ✅ `trader/views/webhook_handler.py` - Webhook handler view with HMAC verification
+- ✅ `trader/views.py` - Added import for webhook_deploy
 - ✅ `trader/tasks.py` - Added `deploy_task()` Celery task
 - ✅ `trader/urls.py` - Added `/webhook/deploy/` URL pattern
-- ✅ `trader/__init__.py` - Exported webhook_deploy view
-- ✅ `trader/views.py` - Updated imports
+- ✅ `trader/__init__.py` - Exported webhook_deploy view (WITHOUT full Django import)
 
 #### 3. Configuration Files
 - ✅ `Main/settings.py` - Added `WEBHOOK_SECRET_TOKEN` configuration
+- ✅ `Main/celery.py` - Created Celery app configuration
 - ✅ `AUTO_DEPLOY_README.md` - Complete deployment documentation
 - ✅ `.env.example` - Example .env file with all required variables
 - ✅ `.gitignore` - Updated to exclude secrets and generated files
@@ -74,6 +75,43 @@
 
 ---
 
+## Troubleshooting
+
+### Error: AppRegistryNotReady("Apps aren't loaded yet.")
+
+**Problem**: When importing tasks, Django models are loaded before Django is initialized.
+
+**Solution**: The issue was fixed by removing the Django import from `trader/__init__.py`:
+
+Before:
+```python
+# trader/__init__.py
+from .views.webhook_handler import webhook_deploy
+__all__ = ['webhook_deploy']
+```
+
+After:
+```python
+# trader/__init__.py
+# Webhook handler imported directly in urls.py, not via __init__.py
+# This avoids AppRegistryNotReady errors when importing models
+```
+
+And updated `trader/urls.py`:
+```python
+from trader.views import webhook_deploy  # Direct import instead of via views
+path('webhook/deploy/', webhook_deploy, name='webhook_deploy'),
+```
+
+**Root Cause**: The import chain was:
+`trader/__init__.py` → `trader.views` → `trader.forms` → `trader.models` → `eveonline.models` → Django `apps.get_containing_app_config()` → `AppRegistryNotReady`
+
+This happened because the models were being loaded before Django was fully initialized.
+
+**How to Fix**: Always import views directly in `urls.py` instead of importing them through `__init__.py` when those views depend on Django functionality.
+
+---
+
 ## Files Structure
 
 ```
@@ -94,7 +132,8 @@ AlliTrader/
 │   ├── urls.py                           # URL patterns
 │   └── __init__.py                       # Exports
 ├── Main/
-│   └── settings.py                       # Added WEBHOOK_SECRET_TOKEN
+│   ├── settings.py                       # Added WEBHOOK_SECRET_TOKEN
+│   └── celery.py                         # Created Celery app configuration
 ├── AUTO_DEPLOY_README.md                 # Full documentation
 ├── .env.example                          # Environment example
 ├── .gitignore                            # Updated
@@ -218,6 +257,37 @@ python scripts/deploy_script.py
 - Check `/var/www/allitrader/deploy.log`
 - Verify permissions on `/var/www/allitrader`
 - Ensure `git`, `supervisorctl`, `pip` are available
+
+### Error: ModuleNotFoundError("No module named 'Main.celery'")
+
+**Problem**: The `Main/celery.py` file was missing.
+
+**Solution**: Created `Main/celery.py` with Celery app configuration.
+
+**Root Cause**: The `Main/__init__.py` file imports `from .celery import app as celery_app`, but the `celery.py` file didn't exist.
+
+**How to Fix**: 
+- Ensure `Main/celery.py` exists (it was created during implementation)
+- The file contains the Celery app initialization with autodiscovery
+
+### Error: ImportError("cannot import name 'webhook_deploy' from 'trader.views'")
+
+**Problem**: When importing `webhook_deploy` from `trader.views`, it wasn't available because the view was in a subdirectory.
+
+**Solution**: Added import in `trader/views.py`:
+```python
+from trader.views.webhook_handler import webhook_deploy
+```
+
+And updated `trader/urls.py` to use `views.webhook_deploy`.
+
+**Root Cause**: The `webhook_handler.py` file is in a subdirectory `trader/views/`, not directly in `trader/`.
+
+**How to Fix**: Import the view from the correct location (`trader.views.webhook_handler`) and make it available through `trader.views` module.
+
+### Error: AppRegistryNotReady("Apps aren't loaded yet.")
+
+**Problem**: When importing tasks, Django models are loaded before Django is initialized.
 
 ### Services not starting
 - Check supervisor logs: `/var/www/allitrader/logs/`

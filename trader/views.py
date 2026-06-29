@@ -14,6 +14,7 @@ from django.http import JsonResponse
 from django.contrib import messages
 import logging
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,6 +37,7 @@ def render_traders(request):
                 # Получаем ассеты для выбранных локаций
                 from trader.models import Asset
                 assets = Asset.objects.filter(
+                    character__user=request.user,
                     location__location_id__in=location_ids
                 ).select_related('character', 'type_id', 'location')
                 

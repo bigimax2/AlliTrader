@@ -2,6 +2,5 @@
 Trader app для AlliTrader
 """
 
-from .views.webhook_handler import webhook_deploy
-
-__all__ = ['webhook_deploy']
+# Webhook handler импортируется напрямую в urls.py, а не через __init__.py
+# Это избежание проблем с AppRegistryNotReady при импорте моделей
