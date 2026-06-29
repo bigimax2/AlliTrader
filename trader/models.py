@@ -98,3 +98,31 @@ class Asset(models.Model):
         type_name = self.type_id.type_name if self.type_id else "Неизвестно"
         location_name = self.location.location_name if self.location else "Неизвестно"
         return f"{type_name} x{self.quantity} @ {location_name}"
+
+
+class AlertThreshold(models.Model):
+    """Индивидуальные пороги алертов для пользователей"""
+    user_id = models.PositiveBigIntegerField(null=False, blank=False)
+    type_id = models.ForeignKey(
+        EveItemType,
+        on_delete=models.CASCADE,
+        null=False,
+        blank=False,
+        db_column='type_id'
+    )
+    min_quantity = models.PositiveIntegerField(null=False, blank=False, default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Порог алерта"
+        verbose_name_plural = "Пороги алертов"
+        unique_together = ('user_id', 'type_id')
+        indexes = [
+            models.Index(fields=['user_id']),
+            models.Index(fields=['type_id']),
+        ]
+
+    def __str__(self):
+        type_name = self.type_id.type_name if self.type_id else "Неизвестно"
+        return f"User {self.user_id} - {type_name}: {self.min_quantity}"

@@ -18,6 +18,13 @@ def messenger_sidebar_config():
 
     return {
         'name': 'Trader',
-        'icon': 'fa-chart-line',
+        'icon': '📈',
         'url': 'trader:render_traders',
+        'extra_links': [
+            {
+                'name': 'Алерты',
+                'url': 'trader:alert_settings',
+                'icon': '⚠️',
+            },
+        ],
     }

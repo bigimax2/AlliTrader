@@ -120,34 +120,55 @@
                         {% endif %}
                         {% if assets %}
                         <div class="table-responsive table-responsive-theme">
-                            <table class="table table-striped table-hover table-theme" id="assetsTable">
-                                <thead class="table-light thead-theme">
-                                    <tr>
+                            {% regroup assets by location.location_name as location_assets %}
+                            {% for location_group in location_assets %}
+                            <div class="asset-location-section mb-4">
+                                <div class="card card-theme asset-location-card">
+                                    <div class="card-header card-header-theme asset-location-header" data-bs-toggle="collapse" data-bs-target="#location-{{ location_group.grouper|slugify }}" style="cursor: pointer;">
+                                        <h5 class="mb-0">
+                                            <i class="fas fa-map-marker-alt"></i> {{ location_group.grouper|default:"Неизвестно" }}
+                                            <span class="badge bg-secondary float-end">{{ location_group.list|length }} предметов</span>
+                                        </h5>
+                                    </div>
+                                    <div id="location-{{ location_group.grouper|slugify }}" class="collapse"> <!---Если надо сделать открытыми карточки по умолчанию изменить class="collapse show"--->
+                                        <div class="card-body card-body-theme asset-location-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-striped table-hover table-theme">
+                                                    <thead class="table-light thead-theme">
+                                                        <tr>
+                                                            <th>Локация</th>
+                                                            <th>Название предмета</th>
+                                                            <th>Категория</th>
+                                                            <th>Группа</th>
+                                                            <th>Количество</th>
+                                                            
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for asset in location_group.list %}
+                                                        {% if asset.alert_level == 'critical' %}
+                                                        <tr class="alert-critical">
+                                                        {% elif asset.alert_level == 'warning' %}
+                                                        <tr class="alert-warning">
+                                                        {% else %}
+                                                        <tr>
+                                                        {% endif %}
+                                                            <td>{{ asset.location.location_name|default:"Неизвестно" }}</td>
+                                                            <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
+                                                            <td>{{ asset.type_id.category_name|default:"-" }}</td>
+                                                            <td>{{ asset.type_id.group_name|default:"-" }}</td>
+                                                            <td>{{ asset.quantity }}</td>
 
-                                        <th>Локация</th>
-                                        <th>Название предмета</th>
-
-                                        <th>Категория</th>
-                                        <th>Группа</th>
-                                        <th>Количество</th>
-                                        <th>Всего</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for asset in assets %}
-                                    <tr>
-
-                                        <td>{{ asset.location.location_name|default:"Неизвестно" }}</td>
-                                        <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
-
-                                        <td>{{ asset.type_id.category_name|default:"-" }}</td>
-                                        <td>{{ asset.type_id.group_name|default:"-" }}</td>
-                                        <td>{{ asset.quantity }}</td>
-                                        <td>{{ asset.quantity }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
                         </div>
                         {% else %}
                         <div class="alert alert-warning alert-theme">
@@ -488,6 +509,68 @@
             background-color: #4dabf7;
             color: #000;
         }
+        
+        /* Стили для секций локаций */
+        [data-theme="light"] .asset-location-card {
+            background-color: #fff;
+            border: 1px solid rgba(0, 0, 0, 0.125);
+            margin-bottom: 10px;
+        }
+        
+        [data-theme="dark"] .asset-location-card {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.125);
+            margin-bottom: 10px;
+        }
+        
+        [data-theme="light"] .asset-location-header {
+            background-color: #e9ecef;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+            color: #212529;
+        }
+        
+        [data-theme="dark"] .asset-location-header {
+            background-color: var(--card-header-bg);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.125);
+            color: var(--text-color);
+        }
+        
+        [data-theme="light"] .asset-location-body {
+            background-color: #fff;
+            color: #212529;
+        }
+        
+        [data-theme="dark"] .asset-location-body {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+        
+        /* Стили для алертов по количеству */
+        [data-theme="light"] .alert-warning,
+        [data-theme="light"] .alert-warning td {
+            background-color: #fff3cd !important;
+            border-left: 4px solid #ffc107 !important;
+        }
+        
+        [data-theme="dark"] .alert-warning,
+        [data-theme="dark"] .alert-warning td {
+            background-color: rgba(255, 203, 7, 0.2) !important;
+            border-left: 4px solid #ffc107 !important;
+            color: #ffeb3b !important;
+        }
+        
+        [data-theme="light"] .alert-critical,
+        [data-theme="light"] .alert-critical td {
+            background-color: #f8d7da !important;
+            border-left: 4px solid #dc3545 !important;
+        }
+        
+        [data-theme="dark"] .alert-critical,
+        [data-theme="dark"] .alert-critical td {
+            background-color: rgba(220, 53, 69, 0.2) !important;
+            border-left: 4px solid #dc3545 !important;
+            color: #ff6b6b !important;
+        }
     </style>
     {% endblock page_styles %}
 
@@ -506,6 +589,15 @@
                     }
                 });
             });
+            
+            // Фокус на таблицу при загрузке
+            {% if assets %}
+            setTimeout(function() {
+                $('html, body').animate({
+                    scrollTop: $('.asset-location-section:first').offset().top - 50
+                }, 500);
+            }, 100);
+            {% endif %}
         });
     </script>
     {% endblock page_scripts %}

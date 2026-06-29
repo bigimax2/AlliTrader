@@ -54,6 +54,17 @@ def user_app_access(request):
             for label, config in APP_CONFIG.items()
             if label in app_labels
         ]
+        
+        # Добавляем extra_links если они есть
+        for label, config in APP_CONFIG.items():
+            if label in app_labels and 'extra_links' in config:
+                for link in config['extra_links']:
+                    user_apps.append({
+                        'name': link['name'],
+                        'icon': link['icon'],
+                        'url': link['url'],
+                        'is_extra_link': True,
+                    })
 
     return {
         'user_app_labels': app_labels,

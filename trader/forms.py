@@ -1,5 +1,5 @@
 from django import forms
-from .models import EveLocation, EveItemType
+from .models import EveLocation, EveItemType, AlertThreshold
 
 
 LOCATION_FLAGS = [
@@ -163,3 +163,50 @@ class LocationSelectForm(forms.Form):
             # Например, сохранить их в сессию пользователя
             return self.cleaned_data['locations']
         return None
+
+
+class AlertThresholdForm(forms.ModelForm):
+    """Форма для настройки порогов алертов"""
+    type_id = forms.ChoiceField(
+        label='Предмет',
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        help_text='Выберите предмет из списка'
+    )
+    
+    class Meta:
+        model = AlertThreshold
+        fields = ['min_quantity']
+        widgets = {
+            'min_quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+        }
+        labels = {
+            'min_quantity': 'Минимальное количество',
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Заполняем список предметов
+        self.fields['type_id'].choices = [(item.type_id, item.type_name) for item in EveItemType.objects.all().order_by('type_name')]
+    
+    def clean_type_id(self):
+        """Валидация выбора предмета"""
+        type_id = self.cleaned_data.get('type_id')
+        if not type_id or type_id == '':
+            raise forms.ValidationError('Пожалуйста, выберите предмет из списка')
+        try:
+            return EveItemType.objects.get(type_id=type_id)
+        except EveItemType.DoesNotExist:
+            raise forms.ValidationError('Выбранный предмет не найден')
+    
+    def save(self, commit=True):
+        """Сохранение с правильным type_id"""
+        instance = super().save(commit=False)
+        type_id = self.cleaned_data.get('type_id')
+        if isinstance(type_id, EveItemType):
+            instance.type_id = type_id
+        elif type_id:
+            instance.type_id = EveItemType.objects.get(type_id=type_id)
+        if commit:
+            instance.save()
+        return instance

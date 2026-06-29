@@ -138,8 +138,13 @@
         {% for app in user_apps %}
         <li class="nav-item">
             <a class="nav-link" href="{% url app.url %}">
+                {% if app.is_extra_link %}
                 <span class="me-2">{{ app.icon }}</span>
                 <span class="mini-click-non"> {{ app.name }}</span>
+                {% else %}
+                <span class="me-2">{{ app.icon }}</span>
+                <span class="mini-click-non"> {{ app.name }}</span>
+                {% endif %}
             </a>
         </li>
         {% endfor %}

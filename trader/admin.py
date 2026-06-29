@@ -1,5 +1,13 @@
 from django.contrib import admin
-from .models import EveItemType, EveLocation, Asset
+from .models import EveItemType, EveLocation, Asset, AlertThreshold
+
+
+@admin.register(AlertThreshold)
+class AlertThresholdAdmin(admin.ModelAdmin):
+    list_display = ('user_id', 'type_id', 'min_quantity', 'created_at')
+    list_filter = ('user_id',)
+    search_fields = ('user_id', 'type_id__type_name')
+    ordering = ('user_id',)
 
 
 @admin.register(EveItemType)
