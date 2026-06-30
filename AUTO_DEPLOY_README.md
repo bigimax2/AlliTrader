@@ -103,7 +103,7 @@ sudo supervisorctl start allitrader:*
 ### 5. Настройка GitHub Webhook:
 
 1. Перейти в Settings → Webhooks → Add webhook
-2. Payload URL: `https://your-server.com/webhook/deploy/`
+2. Payload URL: `https://your-server.com/webhooc_deploy/`
 3. Content type: `application/json`
 4. Secret: `YOUR_WEBHOOK_SECRET_TOKEN`
 5. Which events: `Just the push event`

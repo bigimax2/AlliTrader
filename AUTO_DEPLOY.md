@@ -20,7 +20,7 @@ cp .env.example .env
 
 3. **Настройте GitHub Webhook:**
    - Settings → Webhooks → Add webhook
-   - Payload URL: `https://your-server.com/webhook/deploy/`
+   - Payload URL: `https://your-server.com/webhooc_deploy/`
    - Secret: `<сгенерированный webhook token>`
    - Which events: `Just the push event`
 
