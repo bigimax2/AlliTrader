@@ -199,7 +199,7 @@ USE_CELERY = os.getenv('USE_CELERY', '').strip().lower() in ('true', 'on', '1', 
 PROJECT_NAME = os.getenv('PROJECT_NAME', 'allitrader')
 CELERY_KEY_PREFIX = f"{PROJECT_NAME}_celery"  # Префикс для всех ключей Celery
 
-CELERY_BROKER_URL = "redis://127.0.0.1:6379/3"  # Изолированная БД для Celery
+CELERY_BROKER_URL = "redis://127.0.0.1:6379/4"  # Изолированная БД для Celery
 
 CELERY_TASK_TRACK_STARTED = True  # Отслеживание начала выполнения задачи
 
@@ -220,7 +220,7 @@ CELERY_ENABLE_UTC = True
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/2',  # Отдельная БД для кэша
+        'LOCATION': 'redis://127.0.0.1:6379/5',  # Отдельная БД для кэша
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
             'CONNECTION_POOL_KWARGS': {'decode_responses': False},
