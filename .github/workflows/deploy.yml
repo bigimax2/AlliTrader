@@ -1,0 +1,84 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch: {}  # Возможность запуска вручную
+
+env:
+  PROJECT_PATH: /var/www/allitrader
+  VIRTUALENV_PATH: /var/www/allitrader/.venv
+  DJANGO_SETTINGS: Main.settings
+
+jobs:
+  deploy:
+    name: Deploy to production server
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        cache-dependency-path: 'requirements.txt'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run tests (optional)
+      run: |
+        python manage.py test
+
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v1.1.0
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+        script: |
+          echo "=== Starting deployment ==="
+          cd $PROJECT_PATH
+          
+          echo "=== Pull latest changes ==="
+          git pull origin master
+          
+          echo "=== Install Python dependencies ==="
+          source $VIRTUALENV_PATH/bin/activate
+          pip install -r requirements.txt --quiet
+          
+          echo "=== Run database migrations ==="
+          python manage.py migrate --noinput
+          
+          echo "=== Collect static files ==="
+          python manage.py collectstatic --noinput --clear
+          
+          echo "=== Restart services ==="
+          supervisorctl restart allitrader:*
+          
+          echo "=== Deployment completed ==="
+          supervisorctl status allitrader:*
+
+    - name: Send success notification (optional)
+      if: success()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: "✅ Deployment completed successfully!"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: Send failure notification (optional)
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: "❌ Deployment failed!"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

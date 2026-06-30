@@ -6,7 +6,7 @@ from esi.decorators import token_required
 from authenticated.decorators import app_access_required
 from trader.apps import TraderConfig
 from trader.scopes_for_traders import SCOPES_FOR_TRADERS
-from trader.tasks import get_personage_assets, deploy_task
+from trader.tasks import get_personage_assets
 from EVE_Online_SQLite_API import get_stations_info, get_types_info
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
@@ -20,101 +20,6 @@ import logging
 
 
 logger = logging.getLogger(__name__)
-
-
-# === Webhook Handler Functions ===
-
-import hashlib
-import hmac
-import json
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-
-
-def verify_webhook_signature(request):
-    """Проверка подписи webhook от GitHub"""
-    signature = request.headers.get('X-Hub-Signature-256')
-    if not signature:
-        logger.warning('Missing X-Hub-Signature-256 header')
-        return False
-    
-    # Получаем secret token из settings или env
-    webhook_secret = getattr(settings, 'WEBHOOK_SECRET_TOKEN', None)
-    if not webhook_secret:
-        logger.error('WEBHOOK_SECRET_TOKEN not configured')
-        return False
-    
-    # Вычисляем HMAC
-    sha_name, signature = signature.split('=')
-    if sha_name != 'sha256':
-        logger.warning(f'Unsupported signature algorithm: {sha_name}')
-        return False
-    
-    # Используем request.body напрямую
-    body = request.body
-    if not body:
-        logger.warning('Empty request body')
-        return False
-    
-    expected_signature = hmac.new(
-        webhook_secret.encode(),
-        body,
-        hashlib.sha256
-    ).hexdigest()
-    
-    if not hmac.compare_digest(signature, expected_signature):
-        logger.warning('Invalid webhook signature')
-        logger.warning(f'Expected: {expected_signature}')
-        logger.warning(f'Received: {signature}')
-        return False
-    
-    return True
-
-
-@csrf_exempt
-def webhook_deploy(request):
-    """Endpoint для приема GitHub webhooks"""
-    if request.method != 'POST':
-        return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
-    
-    # Сохраняем тело запроса для повторного чтения
-    raw_body = request.body
-    
-    # Проверка подписи
-    if not verify_webhook_signature(request):
-        logger.warning('Webhook verification failed')
-        return JsonResponse({'status': 'error', 'message': 'Invalid signature'}, status=401)
-    
-    # Парсинг payload
-    try:
-        payload = json.loads(raw_body)
-    except json.JSONDecodeError as e:
-        logger.error(f'Invalid JSON in webhook payload: {e}')
-        logger.error(f'Raw body: {raw_body[:500]}')  # Логируем первые 500 символов
-        return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
-    
-    # Проверка типа события
-    event = request.headers.get('X-GitHub-Event', '')
-    if event != 'push':
-        logger.info(f'Skipping event: {event}')
-        return JsonResponse({'status': 'ok', 'message': f'Event {event} not processed'})
-    
-    # Проверка ветки
-    ref = payload.get('ref', '')
-    branch = ref.replace('refs/heads/', '')
-    if branch != 'master':
-        logger.info(f'Skipping push to non-master branch: {branch}')
-        return JsonResponse({'status': 'ok', 'message': f'Branch {branch} not processed'})
-    
-    # Запуск асинхронной задачи деплоя
-    try:
-        from trader.tasks import deploy_task
-        deploy_task.delay()
-        logger.info(f'Deploy task started for branch {branch}')
-        return JsonResponse({'status': 'ok', 'message': 'Deploy started'})
-    except Exception as e:
-        logger.exception(f'Failed to start deploy task: {e}')
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 
 @app_access_required(TraderConfig.name)
