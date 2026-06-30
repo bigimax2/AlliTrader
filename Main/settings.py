@@ -194,7 +194,7 @@ LOGOUT_REDIRECT_URL = 'authenticated:login'
 
 USE_CELERY = os.getenv('USE_CELERY', '').strip().lower() in ('true', 'on', '1', 'yes')
 
-CELERY_BROKER_URL = "redis://127.0.0.1:6379/1"  # URL для подключения к брокеру сообщений Celery
+CELERY_BROKER_URL = "redis://127.0.0.1:6379/3"  # Изолированная БД для Celery
 CELERY_TIMEZONE = TIME_ZONE  # Часовой пояс для Celery
 CELERY_TASK_TRACK_STARTED = True  # Отслеживание начала выполнения задачи
 
@@ -208,7 +208,7 @@ CELERY_RESULT_EXPIRES = 86400  # 24 часа
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'LOCATION': 'redis://127.0.0.1:6379/2',  # Отдельная БД для кэша
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
         }
