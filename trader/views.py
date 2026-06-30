@@ -50,7 +50,12 @@ def verify_webhook_signature(request):
         logger.warning(f'Unsupported signature algorithm: {sha_name}')
         return False
     
+    # Используем request.body напрямую
     body = request.body
+    if not body:
+        logger.warning('Empty request body')
+        return False
+    
     expected_signature = hmac.new(
         webhook_secret.encode(),
         body,
@@ -59,6 +64,8 @@ def verify_webhook_signature(request):
     
     if not hmac.compare_digest(signature, expected_signature):
         logger.warning('Invalid webhook signature')
+        logger.warning(f'Expected: {expected_signature}')
+        logger.warning(f'Received: {signature}')
         return False
     
     return True
@@ -70,6 +77,9 @@ def webhook_deploy(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
     
+    # Сохраняем тело запроса для повторного чтения
+    raw_body = request.body
+    
     # Проверка подписи
     if not verify_webhook_signature(request):
         logger.warning('Webhook verification failed')
@@ -77,9 +87,10 @@ def webhook_deploy(request):
     
     # Парсинг payload
     try:
-        payload = json.loads(request.body)
-    except json.JSONDecodeError:
-        logger.error('Invalid JSON in webhook payload')
+        payload = json.loads(raw_body)
+    except json.JSONDecodeError as e:
+        logger.error(f'Invalid JSON in webhook payload: {e}')
+        logger.error(f'Raw body: {raw_body[:500]}')  # Логируем первые 500 символов
         return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
     
     # Проверка типа события
