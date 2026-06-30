@@ -16,6 +16,17 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    - name: 🛎️ Notify - Deployment started
+      uses: appleboy/discord-action@master
+      if: always()
+      with:
+        webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
+        webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
+        color: "#8b9b9c"
+        username: "GitHub Bot"
+        message: |
+          Deploy started for ${{ github.sha }}
+
     - name: Checkout code
       uses: actions/checkout@v5
 
@@ -62,3 +73,26 @@ jobs:
           
           echo "=== Deployment completed ==="
           supervisorctl status allitrader:*
+
+
+    - name: 🛎️ Notify - Success
+      if: success()
+      uses: appleboy/discord-action@master
+      with:
+        webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
+        webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
+        color: "#8b9b9c"
+        username: "GitHub Bot"
+        message: |
+          ✅ Deploy succeeded: ${{ github.sha }}
+
+    - name: 🛎️ Notify - Failed
+      if: failure()
+      uses: appleboy/discord-action@master
+      with:
+        webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
+        webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
+        color: "#8b9b9c"
+        username: "GitHub Bot"
+        message: |
+          ❌ Deploy failed: ${{ github.sha }}
