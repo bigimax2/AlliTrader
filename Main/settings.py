@@ -21,15 +21,14 @@ if not ENV_PATH.exists():
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # Webhook secret token для auto-deploy системы
-import secrets
-WEBHOOK_SECRET_TOKEN = os.getenv('WEBHOOK_SECRET_TOKEN', secrets.token_urlsafe(32))
+
 
 DEBUG = True
 
 ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost').split(',') if host.strip()]
 print(f'{ALLOWED_HOSTS}')
 
-CSRF_TRUSTED_ORIGINS = ["http://127.0.0.1:8000", "https://*.cloudpub.ru/",]
+CSRF_TRUSTED_ORIGINS = [trusted.strip() for trusted in os.getenv('CSRF_TRUSTED_ORIGINS', 'http://127.0.0.1:8000').split(',') if trusted.strip()]
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 
@@ -199,7 +198,7 @@ USE_CELERY = os.getenv('USE_CELERY', '').strip().lower() in ('true', 'on', '1', 
 PROJECT_NAME = os.getenv('PROJECT_NAME', 'allitrader')
 CELERY_KEY_PREFIX = f"{PROJECT_NAME}_celery"  # Префикс для всех ключей Celery
 
-CELERY_BROKER_URL = "redis://127.0.0.1:6379/4"  # Изолированная БД для Celery
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_UR')  # Изолированная БД для Celery
 
 CELERY_TASK_TRACK_STARTED = True  # Отслеживание начала выполнения задачи
 
@@ -217,10 +216,15 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TIMEZONE = 'UTC'
 CELERY_ENABLE_UTC = True
 
+# Управление поведением при потере соединения для задач с долгим подтверждением
+# False (по умолчанию в 5.1) - задачи не отменяются при потере соединения
+# True (по умолчанию в 6.0) - задачи отменяются при потере соединения
+CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS = False  # Сохраняем текущее поведение
+
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/5',  # Отдельная БД для кэша
+        'LOCATION': f"{os.getenv('CELERY_CACHE_DB')}",  # Отдельная БД для кэша
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
             'CONNECTION_POOL_KWARGS': {'decode_responses': False},
