@@ -49,17 +49,47 @@ jobs:
         username: ${{ secrets.SSH_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          echo "=== Adding host to known_hosts ==="
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
-          
           echo "=== Starting deployment ==="
-          cd $PROJECT_PATH
+          cd $PROJECT_PATH || mkdir -p $PROJECT_PATH
+          
+          echo "=== Check if git repo exists ==="
+          if [ ! -d .git ]; then
+            echo "Initializing git repository..."
+            git init
+            git remote add origin https://github.com/${{ github.repository }}.git
+          fi
           
           echo "=== Pull latest changes ==="
-          git pull origin master
+          git fetch origin
+          git checkout -f origin/master
+          
+          echo "=== Check Python and virtualenv ==="
+          if [ -d "$VIRTUALENV_PATH" ]; then
+            echo "Virtualenv exists at $VIRTUALENV_PATH"
+            if [ -f "$VIRTUALENV_PATH/bin/activate" ]; then
+              echo "=== Activate virtualenv ==="
+              export VIRTUAL_ENV="$VIRTUALENV_PATH"
+              export PATH="$VIRTUAL_ENV/bin:$PATH"
+              export PYTHONHOME=""
+              deactivate 2>/dev/null || true
+              source "$VIRTUALENV_PATH/bin/activate"
+              echo "Python path: $(which python)"
+              echo "Python version: $(python --version 2>&1)"
+            else
+              echo "Virtualenv activate script not found!"
+              exit 1
+            fi
+          else
+            echo "Virtualenv not found at $VIRTUALENV_PATH"
+            echo "Creating new virtualenv..."
+            python3 -m venv $VIRTUALENV_PATH
+            export VIRTUAL_ENV="$VIRTUALENV_PATH"
+            export PATH="$VIRTUAL_ENV/bin:$PATH"
+            source "$VIRTUALENV_PATH/bin/activate"
+          fi
           
           echo "=== Install Python dependencies ==="
-          source $VIRTUALENV_PATH/bin/activate
+          pip install --upgrade pip
           pip install -r requirements.txt --quiet
           
           echo "=== Run database migrations ==="
