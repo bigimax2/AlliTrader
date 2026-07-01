@@ -1,14 +1,11 @@
 """
-Celery app для groupmanagement.
-Этот файл нужен для импорта app в core/app_task.py.
+Celery app для проекта.
+
+Для проекта используется единый Celery app из Main.celery.
+Этот файл оставлен для обратной совместимости, но не используется.
 """
 
-from celery import Celery
+# Импортируем app из Main.celery для обратной совместимости
+from Main.celery import app
 
-app = Celery('groupmanagement')
-
-# Используем общие настройки из Main.celery
-app.config_from_object('Main.celery', namespace='CELERY')
-
-# Автодискавер задач
-app.autodiscover_tasks()
+__all__ = ('app',)

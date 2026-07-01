@@ -52,19 +52,11 @@ def serialize_schedule(schedule):
 def get_project_celery_schedule(project_name):
     """
     Импортирует CELERY_BEAT_SCHEDULE из указанного проекта.
-    Возвращает None, если проект не найден или не содержит расписания.
+    Использует config.celery_schedule для объединения расписаний.
     """
     try:
-        # Пробуем импортировать из config.celery_schedule проекта
+        # Используем config.celery_schedule, который объединяет все расписания
         module_path = f"{project_name}.config.celery_schedule"
-        module = __import__(module_path, fromlist=['CELERY_BEAT_SCHEDULE'])
-        return getattr(module, 'CELERY_BEAT_SCHEDULE', None)
-    except (ImportError, AttributeError):
-        pass
-
-    try:
-        # Пробуем импортировать напрямую из celery_schedule проекта
-        module_path = f"{project_name}.celery_schedule"
         module = __import__(module_path, fromlist=['CELERY_BEAT_SCHEDULE'])
         return getattr(module, 'CELERY_BEAT_SCHEDULE', None)
     except (ImportError, AttributeError):
