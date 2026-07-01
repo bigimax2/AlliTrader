@@ -221,6 +221,10 @@ CELERY_ENABLE_UTC = True
 # True (по умолчанию в 6.0) - задачи отменяются при потере соединения
 CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS = False  # Сохраняем текущее поведение
 
+# Scheduler для периодических задач
+# Используем django-celery-beat с поддержкой автоматического обновления из CELERY_BEAT_SCHEDULE
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
