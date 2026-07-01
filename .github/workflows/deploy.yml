@@ -50,18 +50,37 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           echo "=== Starting deployment ==="
-          cd $PROJECT_PATH || mkdir -p $PROJECT_PATH
+          echo "Project path: $PROJECT_PATH"
+          echo "Current directory: $(pwd)"
+          
+          # Ensure project directory exists
+          if [ ! -d "$PROJECT_PATH" ]; then
+            echo "Creating project directory..."
+            mkdir -p "$PROJECT_PATH"
+          fi
+          
+          cd "$PROJECT_PATH"
+          echo "Working directory: $(pwd)"
           
           echo "=== Check if git repo exists ==="
           if [ ! -d .git ]; then
             echo "Initializing git repository..."
             git init
             git remote add origin https://github.com/${{ github.repository }}.git
+          else
+            echo "Git repository already exists"
+            echo "Current remote: $(git remote -v)"
           fi
           
-          echo "=== Pull latest changes ==="
+          echo "=== Fetch and checkout ==="
           git fetch origin
+          git status
           git checkout -f origin/master
+          git status
+          
+          echo "=== Verify files ==="
+          ls -la
+          echo "File count: $(find . -type f | wc -l)"
           
           echo "=== Check Python and virtualenv ==="
           if [ -d "$VIRTUALENV_PATH" ]; then
