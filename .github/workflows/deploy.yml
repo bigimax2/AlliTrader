@@ -5,14 +5,9 @@ on:
     branches: [ master ]
   workflow_dispatch: {}  # Возможность запуска вручную
 
-env:
-  PROJECT_PATH: /var/www/allitrader
-  VIRTUALENV_PATH: /var/www/allitrader/.venv
-  DJANGO_SETTINGS: Main.settings
-
 jobs:
   deploy:
-    name: Deploy to production server
+    name: 🚀 Deploy to VPS
     runs-on: ubuntu-latest
     
     steps:
@@ -30,102 +25,35 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v5
 
-    - name: Setup Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.11'
-        cache: 'pip'
-        cache-dependency-path: 'requirements.txt'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-
     - name: Deploy via SSH
       uses: appleboy/ssh-action@v1.2.0
-      env:
-        PROJECT_PATH: /var/www/allitrader
-        VIRTUALENV_PATH: /var/www/allitrader/.venv
-        DJANGO_SETTINGS: Main.settings
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          echo "=== Starting deployment ==="
-          echo "Project path: $PROJECT_PATH"
-          echo "Current directory: $(pwd)"
-          
-          # Ensure project directory exists
-          if [ ! -d "$PROJECT_PATH" ]; then
-            echo "Creating project directory..."
-            mkdir -p "$PROJECT_PATH"
-          fi
-          
-          cd "$PROJECT_PATH"
-          echo "Working directory: $(pwd)"
-          
-          echo "=== Check if git repo exists ==="
-          if [ ! -d .git ]; then
-            echo "Initializing git repository..."
-            git init
-            git remote add origin https://github.com/${{ github.repository }}.git
-          else
-            echo "Git repository already exists"
-            echo "Current remote: $(git remote -v)"
-          fi
-          
-          echo "=== Fetch and checkout ==="
+        script: | 
+          cd /var/www/allitrader
+          echo "🔄 Cleaning git state..."
           git fetch origin
-          git status
-          git checkout -f origin/master
-          git status
+          git reset --hard origin/master
+          git clean -fd
+          echo "✅ Git state cleaned and updated"
           
-          echo "=== Verify files ==="
-          ls -la
-          echo "File count: $(find . -type f | wc -l)"
-          
-          echo "=== Check Python and virtualenv ==="
-          if [ -d "$VIRTUALENV_PATH" ]; then
-            echo "Virtualenv exists at $VIRTUALENV_PATH"
-            if [ -f "$VIRTUALENV_PATH/bin/activate" ]; then
-              echo "=== Activate virtualenv ==="
-              export VIRTUAL_ENV="$VIRTUALENV_PATH"
-              export PATH="$VIRTUAL_ENV/bin:$PATH"
-              export PYTHONHOME=""
-              deactivate 2>/dev/null || true
-              source "$VIRTUALENV_PATH/bin/activate"
-              echo "Python path: $(which python)"
-              echo "Python version: $(python --version 2>&1)"
-            else
-              echo "Virtualenv activate script not found!"
-              exit 1
-            fi
-          else
-            echo "Virtualenv not found at $VIRTUALENV_PATH"
-            echo "Creating new virtualenv..."
-            python3 -m venv "$VIRTUALENV_PATH"
-            export VIRTUAL_ENV="$VIRTUALENV_PATH"
-            export PATH="$VIRTUAL_ENV/bin:$PATH"
-            source "$VIRTUALENV_PATH/bin/activate"
-          fi
-          
-          echo "=== Install Python dependencies ==="
+          echo "📦 Activate venv and install requirements"
+          source venv/bin/activate
           pip install --upgrade pip
-          pip install -r requirements.txt --quiet
+          pip install -r requirements.txt
           
-          echo "=== Run database migrations ==="
+          echo "🔄 Run migrations"
           python manage.py migrate --noinput
           
-          echo "=== Collect static files ==="
-          python manage.py collectstatic --noinput --clear
+          echo "📊 Collect static files"
+          python manage.py collectstatic --noinput
           
-          echo "=== Restart services ==="
-          supervisorctl restart allitrader:*
+          echo "🔄 Restart services via supervisor"
+          sudo supervisorctl restart allitrader:*
           
-          echo "=== Deployment completed ==="
-          supervisorctl status allitrader:*
+          echo "✅ Deploy finished"
 
 
     - name: 🛎️ Notify - Success
