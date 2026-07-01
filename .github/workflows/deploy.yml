@@ -44,6 +44,10 @@ jobs:
 
     - name: Deploy via SSH
       uses: appleboy/ssh-action@v1.2.0
+      env:
+        PROJECT_PATH: /var/www/allitrader
+        VIRTUALENV_PATH: /var/www/allitrader/.venv
+        DJANGO_SETTINGS: Main.settings
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USERNAME }}
@@ -101,7 +105,7 @@ jobs:
           else
             echo "Virtualenv not found at $VIRTUALENV_PATH"
             echo "Creating new virtualenv..."
-            python3 -m venv $VIRTUALENV_PATH
+            python3 -m venv "$VIRTUALENV_PATH"
             export VIRTUAL_ENV="$VIRTUALENV_PATH"
             export PATH="$VIRTUAL_ENV/bin:$PATH"
             source "$VIRTUALENV_PATH/bin/activate"
