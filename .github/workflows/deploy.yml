@@ -50,6 +50,12 @@ jobs:
           echo "📊 Collect static files"
           python manage.py collectstatic --noinput
           
+          echo "🔄 Install supervisor configurations"
+          sudo mkdir -p /etc/supervisor/conf.d
+          sudo cp /var/www/allitrader/scripts/supervisor/*.conf /etc/supervisor/conf.d/
+          sudo supervisorctl reread
+          sudo supervisorctl update
+          
           echo "🔄 Restart services via supervisor"
           sudo supervisorctl restart allitrader:*
           
