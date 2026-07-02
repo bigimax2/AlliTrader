@@ -29,7 +29,8 @@ class AppRegistry:
             raise ValueError(f"Для '{app_label}' не хватает ключей: {required_keys - config.keys()}")
 
         self._apps[app_label] = config
-        print(f"[AppRegistry] Registered app: {app_label} = {config}")
+        # Отключаем вывод для избежания проблем с Unicode в Windows cmd
+        # print(f"[AppRegistry] Registered app: {app_label}")
 
     def get_apps(self):
         """Возвращает копию словаря зарегистрированных приложений."""

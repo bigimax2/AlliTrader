@@ -1,0 +1,1 @@
+SCOPES_FOR_TRADERS = ['esi-assets.read_assets.v1']

@@ -74,3 +74,4 @@ esi_metods.py
 # --- Generated files ---
 scripts/*.secret
 scripts/*.key
+/.venv/

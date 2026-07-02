@@ -1,5 +1,4 @@
-from django.conf import settings
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from trader.forms import LocationSelectForm, AlertThresholdForm
 from esi.decorators import token_required
 
@@ -9,12 +8,10 @@ from trader.scopes_for_traders import SCOPES_FOR_TRADERS
 from trader.tasks import get_personage_assets
 from EVE_Online_SQLite_API import get_stations_info, get_types_info
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
 from trader.models import EveItemType, AlertThreshold
 from eveonline.models import EveCharacter
 from authenticated.models import OwnershipRecord
 from esi.models import Token
-from django.http import JsonResponse
 from django.contrib import messages
 import logging
 
@@ -23,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 @app_access_required(TraderConfig.name)
+@login_required
 def render_traders(request):
     # Проверяем, есть ли у пользователя хотя бы один токен с нужными scopes
     has_valid_token = Token.objects.filter(
@@ -105,8 +103,8 @@ def render_traders(request):
                         thresh = int(threshold)
                         # critical: qty <= thresh + 15% от thresh (порог + 15%)
                         # warning: qty <= thresh + 30% от thresh (порог + 30%)
-                        critical_threshold = thresh * 1.15
-                        warning_threshold = thresh * 1.30
+                        critical_threshold = thresh * 0.25
+                        warning_threshold = thresh * 0.5
                         logger.info(f"Asset type_id={asset.type_id.type_id}, quantity={qty}, threshold={thresh}")
                         logger.info(f"  thresholds: critical={critical_threshold}, warning={warning_threshold}")
                         
@@ -116,6 +114,9 @@ def render_traders(request):
                         elif qty <= warning_threshold:
                             asset.alert_level = 'warning'
                             logger.info(f"  -> warning (qty={qty} <= {warning_threshold})")
+                        elif qty == thresh:
+                            asset.alert_level = 'warning'
+                            logger.info(f"  -> warning (qty={qty} = {thresh})")
                         else:
                             asset.alert_level = None
                             logger.info(f"  -> None (qty={qty} > {warning_threshold})")
@@ -225,11 +226,8 @@ def delete_threshold(request):
     return redirect('trader:alert_settings')
 
 
-@app_access_required(TraderConfig.name)
-@token_required(new=True, scopes=SCOPES_FOR_TRADERS)
-def get_token_assets(request, token):
-    assets_status = get_personage_assets.delay(token.id)
-    return redirect('trader:render_traders')
+
+
 
 
 def parser_assets(assets, character):
@@ -315,8 +313,4 @@ def parser_assets(assets, character):
     return Asset.objects.filter(character=character).count()
 
 
-@app_access_required(TraderConfig.name)
-@token_required(new=True, scopes=SCOPES_FOR_TRADERS)
-def get_token_assets(request, token):
-    assets_status = get_personage_assets.delay(token.id)
-    return redirect('trader:render_traders')
+

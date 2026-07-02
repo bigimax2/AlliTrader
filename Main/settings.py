@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'groupmanagement.apps.GroupmanagementConfig',
     'channels',
     'trader.apps.TraderConfig',
+    'observer_assets.apps.ObserverAssetsConfig',
 
 ]
 
@@ -260,3 +261,4 @@ LOGGING = {
 }
 
 ENABLE_TRADER = os.getenv('ENABLE_TRADER', '').strip().lower() in ('true', '1', 'yes')
+ENABLE_OBSERVER_ASSETS = True
