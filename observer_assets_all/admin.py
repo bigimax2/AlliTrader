@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django.apps import AppConfig
-from observer_assets.apps import ObserverAssetsConfig
+from observer_assets_all.apps import ObserverAssetsConfig
 
 
 class ObserverAssetsAdminSite(admin.AdminSite):

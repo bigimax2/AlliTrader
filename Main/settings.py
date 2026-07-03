@@ -53,7 +53,7 @@ INSTALLED_APPS = [
     'groupmanagement.apps.GroupmanagementConfig',
     'channels',
     'trader.apps.TraderConfig',
-    'observer_assets.apps.ObserverAssetsConfig',
+    'observer_assets_all.apps.ObserverAssetsConfig',
 
 ]
 

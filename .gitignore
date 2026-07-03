@@ -75,3 +75,5 @@ esi_metods.py
 scripts/*.secret
 scripts/*.key
 /.venv/
+/trader/migrations/
+/observer_assets_all/migrations/

@@ -1,0 +1,221 @@
+{% extends 'index.html' %}
+{% load static %}
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card card-theme">
+                <div class="card-header card-header-theme">
+                    <h5 class="mb-0"><i class="fas fa-search"></i><span style="color: #e3154b">Поиск информации о предметах</span></h5>
+                </div>
+                <div class="card-body card-body-theme">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="form-group mb-3">
+                                    <label for="{{ form.type_names.id_for_label }}" class="form-label form-label-theme">
+                                        <i class="fas fa-list-alt"></i> {{ form.type_names.label }}
+                                    </label>
+                                    {{ form.type_names }}
+                                    <small class="form-text text-muted">{{ form.type_names.help_text }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-12 d-flex gap-2">
+                                <button type="submit" class="btn btn-success btn-theme">
+                                    <i class="fas fa-search"></i> Найти предметы
+                                </button>
+                                <a href="{% url 'observer_assets:type_names_lookup' %}" class="btn btn-secondary btn-theme">
+                                    <i class="fas fa-redo"></i> Сбросить
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Секция результатов -->
+    {% if result_data %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card card-theme">
+                <div class="card-header card-header-theme">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-clipboard-list"></i> Результаты поиска</h5>
+                        <span class="badge bg-primary">{{ result_data|length }} предметов найдено</span>
+                    </div>
+                </div>
+                <div class="card-body card-body-theme">
+                    {% if result_data %}
+                    <div class="table-responsive table-responsive-theme">
+                        <table class="table table-striped table-hover table-theme">
+                            <thead class="table-light thead-theme">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Название</th>
+                                    <th>Группа</th>
+                                    <th>Категория</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for type_id, type_info in result_data.items %}
+                                <tr>
+                                    <td>{{ type_id }}</td>
+                                    <td>{{ type_info.typeName|default:"Неизвестно" }}</td>
+                                    <td>{{ type_info.groupName|default:"-" }}</td>
+                                    <td>{{ type_info.categoryName|default:"-" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info alert-theme">
+                        <i class="fas fa-info-circle"></i> Нет данных по введенным именам предметов.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% block page_styles %}
+<style>
+    /* Стили для формы поиска */
+    [data-theme="light"] .card-theme {
+        background-color: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.125);
+    }
+    
+    [data-theme="dark"] .card-theme {
+        background-color: var(--card-bg);
+        border: 1px solid rgba(255, 255, 255, 0.125);
+        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+    }
+    
+    [data-theme="light"] .card-header-theme {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+        color: #212529;
+    }
+    
+    [data-theme="dark"] .card-header-theme {
+        background-color: var(--card-header-bg);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.125);
+        color: var(--text-color);
+    }
+    
+    [data-theme="light"] .card-body-theme {
+        background-color: #ffffff;
+        color: #212529;
+    }
+    
+    [data-theme="dark"] .card-body-theme {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+    }
+    
+    [data-theme="light"] .form-label-theme {
+        color: #212529;
+    }
+    
+    [data-theme="dark"] .form-label-theme {
+        color: var(--text-color);
+    }
+    
+    [data-theme="light"] .form-text {
+        color: #6c757d;
+    }
+    
+    [data-theme="dark"] .form-text {
+        color: var(--text-color);
+    }
+    
+    [data-theme="light"] .form-control {
+        background-color: #fff;
+        border: 1px solid #ced4da;
+        color: #212529;
+    }
+    
+    [data-theme="dark"] .form-control {
+        background-color: var(--card-bg);
+        border: 1px solid rgba(255, 255, 255, 0.125);
+        color: var(--text-color);
+    }
+    
+    [data-theme="light"] .btn-theme {
+        color: #fff;
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+    
+    [data-theme="dark"] .btn-theme {
+        color: #fff;
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+    
+    [data-theme="light"] .btn-theme:hover {
+        background-color: #0b5ed7;
+        border-color: #0a58ca;
+    }
+    
+    [data-theme="dark"] .btn-theme:hover {
+        background-color: #0b5ed7;
+        border-color: #0a58ca;
+    }
+    
+    [data-theme="light"] .alert-theme {
+        background-color: #f0f7ff;
+        border-color: #d0e0f0;
+        color: #084298;
+    }
+    
+    [data-theme="dark"] .alert-theme {
+        background-color: var(--card-bg);
+        border-color: rgba(255, 255, 255, 0.125);
+        color: var(--text-color);
+    }
+    
+    [data-theme="light"] .table-responsive-theme {
+        border: 1px solid rgba(0, 0, 0, 0.125);
+    }
+    
+    [data-theme="dark"] .table-responsive-theme {
+        border: 1px solid rgba(255, 255, 255, 0.125);
+    }
+    
+    [data-theme="light"] .table-theme {
+        color: #212529;
+    }
+    
+    [data-theme="dark"] .table-theme {
+        color: var(--text-color);
+    }
+    
+    [data-theme="light"] .table-theme thead th {
+        background-color: #e7f1ff;
+        color: #084298;
+    }
+    
+    [data-theme="dark"] .table-theme thead th {
+        background-color: rgba(13, 110, 253, 0.2);
+        color: var(--text-color);
+    }
+    
+    [data-theme="light"] .table-theme tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+    
+    [data-theme="dark"] .table-theme tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+</style>
+{% endblock page_styles %}
+{% endblock content %}

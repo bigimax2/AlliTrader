@@ -20,5 +20,11 @@ def observer_assets_config():
         'name': 'Observer_assets',
         'icon': '📈',
         'url': 'observer_assets:assets_overview',
-
+        'extra_lincs': [
+            {
+                'name': 'Ввод имен итемов',
+                'url': 'observer_assets_all:type_names_lookup',
+                'icon': '⚠️',
+            },
+        ],
     }

@@ -4,9 +4,10 @@ from esi.models import Token
 
 from authenticated.decorators import app_access_required
 from eveonline.models import EveCharacter
-from observer_assets.apps import ObserverAssetsConfig
-from observer_assets.assets_forms import AssetsOverviewForm
-from observer_assets.scopes_for_traders import SCOPES_FOR_TRADERS
+from observer_assets_all.apps import ObserverAssetsConfig
+from observer_assets_all.assets_forms import AssetsOverviewForm, TypeNamesForm
+from EVE_Online_SQLite_API import get_types_names
+from observer_assets_all.scopes_for_traders import SCOPES_FOR_TRADERS
 from trader.models import EveLocation, EveItemType
 
 
@@ -119,3 +120,28 @@ def assets_overview(request):
         'total_characters': characters_with_assets.count(),
         'is_filtered': request.method == 'POST',  # Флаг применения фильтров
     })
+
+
+@app_access_required(ObserverAssetsConfig.name)
+@login_required
+def type_names_lookup(request):
+    """Представление для поиска информации о предметах по их именам"""
+    result_data = None
+    
+    if request.method == 'POST':
+        form = TypeNamesForm(request.POST)
+        if form.is_valid():
+            type_names_input = form.cleaned_data.get('type_names', '')
+            # Разбиваем ввод на список имен (по одной на строку)
+            type_names_list = [name.strip() for name in type_names_input.split('\n') if name.strip()]
+            
+            if type_names_list:
+                result_data = get_types_names(type_names_list)
+    else:
+        form = TypeNamesForm()
+    
+    return render(request, 'type_names_lookup.html', {
+        'form': form,
+        'result_data': result_data,
+    })
+

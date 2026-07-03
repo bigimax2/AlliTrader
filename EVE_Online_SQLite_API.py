@@ -96,4 +96,32 @@ def get_stations_info(station_ids):
         logger.error(f"Ошибка при batch-запросе станций: {e}")
         return {}
 
+def get_types_names(type_names):
+    if not type_names:
+        return {}
+    try:
+        url_name = f"{settings.SDE_API_URL}/types/by-ids"
+        head = {
+            'X-API-KEY': settings.SDE_API_KEY,
+            'Content-Type': 'application/json',
+        }
 
+        response = requests.post(url_name, headers=head, json=list(type_names))
+        response.raise_for_status()
+        result = response.json()
+
+        # Преобразуем список с расширенными данными в словарь
+        if isinstance(result, list):
+            return {
+                item['typeID']: {
+                    'typeName': item.get('typeName', ''),
+                    'groupID': item.get('groupID'),
+                    'groupName': item.get('groupName', ''),
+                    'categoryID': item.get('categoryID'),
+                    'categoryName': item.get('categoryName', '')
+                } for item in result
+            }
+        return result if isinstance(result, dict) else {}
+    except Exception as e:
+        logger.error(f"Ошибка при batch-запросе имён типов: {e}")
+        return {}

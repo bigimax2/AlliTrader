@@ -1,8 +1,9 @@
 from django.urls import path
 
-from observer_assets import views
+from observer_assets_all import views
 
 app_name = 'observer_assets'
 urlpatterns = [
     path('assets_overview/', views.assets_overview, name='assets_overview'),
+    path('type_names_lookup/', views.type_names_lookup, name='type_names_lookup'),
 ]
