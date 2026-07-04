@@ -4,18 +4,19 @@ from esi.models import Token
 
 from authenticated.decorators import app_access_required
 from eveonline.models import EveCharacter
-from observer_assets_all.apps import ObserverAssetsConfig
+from observer_assets_all.apps import ObserverAssetsAllConfig
 from observer_assets_all.assets_forms import AssetsOverviewForm, TypeNamesForm
 from EVE_Online_SQLite_API import get_types_names
 from observer_assets_all.scopes_for_traders import SCOPES_FOR_TRADERS
-from trader.models import EveLocation, EveItemType
+from observer_assets_single.models import EveLocation, EveItemType
+from observer_assets_all.models import TypeSearchResult
 
 
-@app_access_required(ObserverAssetsConfig.name)
+@app_access_required(ObserverAssetsAllConfig.name)
 @login_required
 def assets_overview(request):
     """Представление для отображения всех ассетов всех персонажей с токенами доступа"""
-    from trader.models import Asset
+    from observer_assets_single.models import Asset
 
     # Проверяем, есть ли у пользователя хотя бы один токен с нужными scopes
     has_valid_token = Token.objects.filter(
@@ -122,7 +123,7 @@ def assets_overview(request):
     })
 
 
-@app_access_required(ObserverAssetsConfig.name)
+@app_access_required(ObserverAssetsAllConfig.name)
 @login_required
 def type_names_lookup(request):
     """Представление для поиска информации о предметах по их именам"""
@@ -137,6 +138,9 @@ def type_names_lookup(request):
             
             if type_names_list:
                 result_data = get_types_names(type_names_list)
+                # Парсим и сохраняем результаты в модель
+                if result_data:
+                    parse_and_save_type_search_results(result_data)
     else:
         form = TypeNamesForm()
     
@@ -144,4 +148,30 @@ def type_names_lookup(request):
         'form': form,
         'result_data': result_data,
     })
+
+
+def parse_and_save_type_search_results(type_data):
+    """Функция для парсинга данных и сохранения их в модель TypeSearchResult"""
+    if not type_data:
+        return
+    
+    for type_id, type_info in type_data.items():
+        # Извлекаем данные из словаря
+        type_name = type_info.get('typeName', '')
+        group_id = type_info.get('groupID')
+        group_name = type_info.get('groupName', '')
+        category_id = type_info.get('categoryID')
+        category_name = type_info.get('categoryName', '')
+        
+        # Создаем или обновляем запись в базе данных
+        TypeSearchResult.objects.update_or_create(
+            type_id=type_id,
+            defaults={
+                'type_name': type_name,
+                'group_id': group_id,
+                'group_name': group_name,
+                'category_id': category_id,
+                'category_name': category_name,
+            }
+        )
 

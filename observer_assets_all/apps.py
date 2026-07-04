@@ -3,11 +3,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class ObserverAssetsConfig(AppConfig):
+class ObserverAssetsAllConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'observer_assets_all'
-    label = 'observer_assets'
-    verbose_name = 'Observer Assets'
+    label = 'observer_assets_all'
+    verbose_name = 'Observer Assets All'
 
     def ready(self):
         from . import registry_app  # ⬅️ Важно: импортируем, чтобы выполнить код с @decorator

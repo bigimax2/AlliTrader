@@ -1,17 +1,24 @@
 from django.db import models
 
 
-class ObserverSettings(models.Model):
-    """Настройки для Observer Assets"""
-    key = models.CharField(max_length=100, unique=True, verbose_name='Ключ')
-    value = models.TextField(blank=True, verbose_name='Значение')
-    description = models.TextField(blank=True, verbose_name='Описание')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создано')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлено')
-    
+class TypeSearchResult(models.Model):
+    """Модель для хранения результатов поиска типов предметов"""
+    type_id = models.PositiveBigIntegerField(primary_key=True, null=False, blank=False)
+    type_name = models.CharField(max_length=255, null=True, blank=True)
+    group_id = models.PositiveBigIntegerField(null=True, blank=True)
+    group_name = models.CharField(max_length=255, null=True, blank=True)
+    category_id = models.PositiveBigIntegerField(null=True, blank=True)
+    category_name = models.CharField(max_length=255, null=True, blank=True)
+    search_timestamp = models.DateTimeField(auto_now_add=True)
+
     class Meta:
-        verbose_name = 'Настройка наблюдателя'
-        verbose_name_plural = 'Настройки наблюдателя'
-    
+        verbose_name = "Результат поиска типа предмета"
+        verbose_name_plural = "Результаты поиска типов предметов"
+        indexes = [
+            models.Index(fields=['type_name']),
+            models.Index(fields=['group_name']),
+            models.Index(fields=['category_name']),
+        ]
+
     def __str__(self):
-        return self.key
+        return self.type_name or f"Type ID: {self.type_id}"

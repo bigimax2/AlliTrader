@@ -12,7 +12,7 @@ from authenticated.celery_schedule import CELERY_BEAT_SCHEDULE as AUTH_SCHEDULE
 from groupmanagement.celery_schedule import CELERY_BEAT_SCHEDULE as GROUPMAN_SCHEDULE
 from eveonline.celery_schedule import CELERY_BEAT_SCHEDULE as EVEONLINE_SCHEDULE
 from core.celery_schedule import CELERY_BEAT_SCHEDULE as CORE_SCHEDULE
-from trader.celery_schedule import CELERY_BEAT_SCHEDULE as TRADER_SCHEDULE
+from observer_assets_single.celery_schedule import CELERY_BEAT_SCHEDULE as TRADER_SCHEDULE
 
 # Объединяем все расписания в одно с уникальными именами для каждого проекта
 CELERY_BEAT_SCHEDULE = {}

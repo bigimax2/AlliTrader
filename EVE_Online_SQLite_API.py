@@ -100,7 +100,7 @@ def get_types_names(type_names):
     if not type_names:
         return {}
     try:
-        url_name = f"{settings.SDE_API_URL}/types/by-ids"
+        url_name = f"{settings.SDE_API_URL}/types/by-names"
         head = {
             'X-API-KEY': settings.SDE_API_KEY,
             'Content-Type': 'application/json',

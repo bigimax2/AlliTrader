@@ -1,7 +1,7 @@
 import logging
 from django.apps import apps
 from core.app_task import app_task
-from trader.scopes_for_traders import SCOPES_FOR_TRADERS
+from observer_assets_single.scopes_for_traders import SCOPES_FOR_TRADERS
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def get_personage_assets(token_id=None):
     from esi.models import Token
     from eveonline.models import EveCharacter
-    from trader.models import Asset
+    from observer_assets_single.models import Asset
     eveonline_config = apps.get_app_config('eveonline')
     esi = eveonline_config.esi
 
@@ -81,7 +81,7 @@ def get_personage_assets(token_id=None):
                 else:
                     raise e
             
-            from trader.views import parser_assets
+            from observer_assets_single.views import parser_assets
             parser_assets(assets_data, eve_char)
             logger.info(f"Ассеты успешно получены и обработаны для {eve_char.name}")
         except Exception as e:

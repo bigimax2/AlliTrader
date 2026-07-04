@@ -1,8 +1,8 @@
 from django.urls import path
 
-from trader import views
+from observer_assets_single import views
 
-app_name = 'trader'
+app_name = 'observer_assets_single'
 urlpatterns = [
     path('render_traders/', views.render_traders, name='render_traders'),
 

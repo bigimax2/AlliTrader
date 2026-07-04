@@ -3,16 +3,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class TraderConfig(AppConfig):
+class ObserverAssetsSingleConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'trader'
-    label ='trader'
+    name = 'observer_assets_single'
+    label ='observer_assets_single'
 
     def ready(self):
         from . import registry_app  # ⬅️ Важно: импортируем, чтобы выполнить код с @decorator
         # Импорт задач — всегда нужен, т.к. @shared_task должны быть доступны
         from . import tasks  # noqa: F401
-        logger.info("Модуль trader.tasks загружен")
+        logger.info("Модуль observer_assets_single.tasks загружен")
 
         # Проверка: включена ли синхронизация?
         from django.conf import settings

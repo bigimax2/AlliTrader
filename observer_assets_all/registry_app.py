@@ -4,7 +4,7 @@ import os
 import sys
 
 
-@app_registry.decorator('observer_assets')
+@app_registry.decorator('observer_assets_all')
 def observer_assets_config():
     # Проверяем, включено ли приложение в настройках
     if not getattr(settings, 'ENABLE_OBSERVER_ASSETS', True):
@@ -17,10 +17,10 @@ def observer_assets_config():
         return None
 
     return {
-        'name': 'Observer_assets',
+        'name': 'Observer_assets_all',
         'icon': '📈',
-        'url': 'observer_assets:assets_overview',
-        'extra_lincs': [
+        'url': 'observer_assets_all:assets_overview',
+        'extra_links': [
             {
                 'name': 'Ввод имен итемов',
                 'url': 'observer_assets_all:type_names_lookup',

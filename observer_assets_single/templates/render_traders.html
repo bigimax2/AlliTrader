@@ -97,7 +97,7 @@
                                     <button type="submit" class="btn btn-success btn-theme">
                                         <i class="fas fa-save"></i> Сохранить выбор
                                     </button>
-                                    <a href="{% url 'trader:get_token_assets' %}" class="btn btn-primary btn-theme">
+                                    <a href="{% url 'observer_assets_single:get_token_assets' %}" class="btn btn-primary btn-theme">
                                         <i class="fas fa-sync-alt"></i> Обновить ассеты
                                     </a>
                                 </div>
@@ -121,7 +121,7 @@
                             Для получения доступа к форме фильтрации ассетов необходимо авторизовать хотя бы одного персонажа с нужными scopes.
                         </div>
                         <div class="d-flex justify-content-center gap-2">
-                            <a href="{% url 'trader:get_token_assets' %}" class="btn btn-primary btn-theme">
+                            <a href="{% url 'observer_assets_single:get_token_assets' %}" class="btn btn-primary btn-theme">
                                 <i class="fas fa-sync-alt"></i> Обновить ассеты (авторизовать персонажа)
                             </a>
                             <a href="{% url 'observer_assets:assets_overview' %}" class="btn btn-secondary btn-theme">

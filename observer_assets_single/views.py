@@ -1,14 +1,14 @@
 from django.shortcuts import render, redirect
-from trader.forms import LocationSelectForm, AlertThresholdForm
+from observer_assets_single.forms import LocationSelectForm, AlertThresholdForm
 from esi.decorators import token_required
 
 from authenticated.decorators import app_access_required
-from trader.apps import TraderConfig
-from trader.scopes_for_traders import SCOPES_FOR_TRADERS
-from trader.tasks import get_personage_assets
+from observer_assets_single.apps import ObserverAssetsSingleConfig
+from observer_assets_single.scopes_for_traders import SCOPES_FOR_TRADERS
+from observer_assets_single.tasks import get_personage_assets
 from EVE_Online_SQLite_API import get_stations_info, get_types_info
 from django.contrib.auth.decorators import login_required
-from trader.models import EveItemType, AlertThreshold
+from observer_assets_single.models import EveItemType, AlertThreshold
 from eveonline.models import EveCharacter
 from authenticated.models import OwnershipRecord
 from esi.models import Token
@@ -19,7 +19,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-@app_access_required(TraderConfig.name)
+@app_access_required(ObserverAssetsSingleConfig.name)
 @login_required
 def render_traders(request):
     # Проверяем, есть ли у пользователя хотя бы один токен с нужными scopes
@@ -43,7 +43,7 @@ def render_traders(request):
                 location_flag = form.cleaned_data.get('location_flag', '')
                 
                 # Получаем ассеты для выбранных локаций
-                from trader.models import Asset
+                from observer_assets_single.models import Asset
                 # Получаем выбранных персонажей или всех персонажей текущего пользователя через OwnershipRecord
                 selected_characters = form.cleaned_data.get('character', [])
                 if selected_characters:
@@ -88,7 +88,7 @@ def render_traders(request):
                 
                 # Загружаем пороги алертов для текущего пользователя
                 user_id = request.user.id if request.user.is_authenticated else 0
-                from trader.models import AlertThreshold
+                from observer_assets_single.models import AlertThreshold
                 alert_thresholds = {at.type_id_id: at.min_quantity for at in AlertThreshold.objects.filter(user_id=user_id)}
                 
                 logger.info(f"User ID: {user_id}, Порогов алертов: {len(alert_thresholds)}")
@@ -142,19 +142,19 @@ def render_traders(request):
     })
 
 
-@app_access_required(TraderConfig.name)
+@app_access_required(ObserverAssetsSingleConfig.name)
 @login_required
 @token_required(new=True, scopes=SCOPES_FOR_TRADERS)
 def get_token_assets(request, token):
     assets_status = get_personage_assets.delay(token.id)
-    return redirect('trader:render_traders')
+    return redirect('observer_assets_single:render_traders')
 
 
-@app_access_required(TraderConfig.name)
+@app_access_required(ObserverAssetsSingleConfig.name)
 @login_required
 def alert_settings(request):
     """Страница настройки порогов алертов"""
-    from trader.models import AlertThreshold
+    from observer_assets_single.models import AlertThreshold
     
     user_id = request.user.id
     
@@ -177,7 +177,7 @@ def alert_settings(request):
             logger.info(f"Saving threshold: user_id={user_id}, type_id={threshold.type_id}, min_quantity={threshold.min_quantity}")
             threshold.save()
             messages.success(request, 'Порог алерта успешно добавлен!')
-            return redirect('trader:alert_settings')
+            return redirect('observer_assets_single:alert_settings')
         else:
             logger.error(f"Form errors: {form.errors}")
             messages.error(request, 'Ошибка при добавлении порога алерта. Проверьте правильность данных.')
@@ -217,13 +217,13 @@ def delete_threshold(request):
         try:
             AlertThreshold.objects.filter(id=threshold_id, user_id=user_id).delete()
             messages.success(request, 'Порог алерта успешно удален!')
-            return redirect('trader:alert_settings')
+            return redirect('observer_assets_single:alert_settings')
         except Exception as e:
             messages.error(request, f'Ошибка при удалении порога алерта: {str(e)}')
-            return redirect('trader:alert_settings')
+            return redirect('observer_assets_single:alert_settings')
     
     messages.error(request, 'Неверный запрос')
-    return redirect('trader:alert_settings')
+    return redirect('observer_assets_single:alert_settings')
 
 
 
@@ -239,7 +239,7 @@ def parser_assets(assets, character):
         assets: Список данных активов из API
         character: Объект EveCharacter, которому принадлежат активы
     """
-    from trader.models import Asset, EveItemType, EveLocation
+    from observer_assets_single.models import Asset, EveItemType, EveLocation
     
     # Получаем текущие item_id активов из API
     current_item_ids = set()
