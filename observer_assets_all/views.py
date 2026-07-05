@@ -156,7 +156,12 @@ def type_names_lookup(request):
     else:
         form = TypeNamesForm()
         grouped_data = []
-        type_names_save = TypeSearchResult.objects.filter(character__character_id=personage)
+        # Пытаемся использовать character__character_id, если поле существует
+        # Если нет - используем character_id напрямую (старая версия таблицы)
+        try:
+            type_names_save = TypeSearchResult.objects.filter(character__character_id=personage)
+        except Exception:
+            type_names_save = TypeSearchResult.objects.filter(character_id=personage)
         for type_name in type_names_save:
                 result_data[type_name.type_id] = {
 
