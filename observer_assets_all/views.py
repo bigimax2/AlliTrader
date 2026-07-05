@@ -127,9 +127,20 @@ def assets_overview(request):
 @login_required
 def type_names_lookup(request):
     """Представление для поиска информации о предметах по их именам"""
-    result_data = None
+    result_data = {}
 
-    personage = request.user.userprofile.main_character_id
+    try:
+        personage = request.user.userprofile.main_character_id
+    except AttributeError:
+        personage = None
+    
+    if personage is None:
+        return render(request, 'type_names_lookup.html', {
+            'form': TypeNamesForm(),
+            'result_data': result_data,
+            'grouped_data': [],
+        })
+    
     if request.method == 'POST':
         form = TypeNamesForm(request.POST)
         if form.is_valid():
@@ -144,11 +155,9 @@ def type_names_lookup(request):
                     parse_and_save_type_search_results(result_data,personage)
     else:
         form = TypeNamesForm()
-        result_data = {}
         grouped_data = []
-        try:
-            type_names_save = TypeSearchResult.objects.filter(character_id=personage)
-            for type_name in type_names_save:
+        type_names_save = TypeSearchResult.objects.filter(character__character_id=personage)
+        for type_name in type_names_save:
                 result_data[type_name.type_id] = {
 
                     'categoryID': type_name.category_id,
@@ -163,9 +172,6 @@ def type_names_lookup(request):
                     'groupName': type_name.group_name,
                     'typeName': type_name.type_name,
                 })
-                
-        except TypeSearchResult.DoesNotExist:
-            pass
     
     return render(request, 'type_names_lookup.html', {
         'form': form,
@@ -178,7 +184,10 @@ def parse_and_save_type_search_results(type_data, personage):
     """Функция для парсинга данных и сохранения их в модель TypeSearchResult"""
     if not type_data:
         return
-    pers = EveCharacter.objects.get(character_id=personage)
+    try:
+        pers = EveCharacter.objects.get(character_id=personage)
+    except EveCharacter.DoesNotExist:
+        return
     for type_id, type_info in type_data.items():
         # Извлекаем данные из словаря
         type_name = type_info.get('typeName', '')
