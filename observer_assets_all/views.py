@@ -128,6 +128,7 @@ def assets_overview(request):
 def type_names_lookup(request):
     """Представление для поиска информации о предметах по их именам"""
     result_data = {}
+    grouped_data = []
 
     try:
         personage = request.user.userprofile.main_character_id
@@ -138,7 +139,7 @@ def type_names_lookup(request):
         return render(request, 'type_names_lookup.html', {
             'form': TypeNamesForm(),
             'result_data': result_data,
-            'grouped_data': [],
+            'grouped_data': grouped_data,
         })
     
     if request.method == 'POST':
@@ -153,9 +154,10 @@ def type_names_lookup(request):
                 # Парсим и сохраняем результаты в модель
                 if result_data:
                     parse_and_save_type_search_results(result_data,personage)
+        else:
+            form = TypeNamesForm()
     else:
         form = TypeNamesForm()
-        grouped_data = []
         # Пытаемся использовать character__character_id, если поле существует
         # Если нет - используем character_id напрямую (старая версия таблицы)
         try:
