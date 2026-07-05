@@ -50,29 +50,42 @@
                     </div>
                 </div>
                 <div class="card-body card-body-theme">
-                    {% if result_data %}
-                    <div class="table-responsive table-responsive-theme">
-                        <table class="table table-striped table-hover table-theme">
-                            <thead class="table-light thead-theme">
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Название</th>
-                                    <th>Группа</th>
-                                    <th>Категория</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for type_id, type_info in result_data.items %}
-                                <tr>
-                                    <td>{{ type_id }}</td>
-                                    <td>{{ type_info.typeName|default:"Неизвестно" }}</td>
-                                    <td>{{ type_info.groupName|default:"-" }}</td>
-                                    <td>{{ type_info.categoryName|default:"-" }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    {% if grouped_data %}
+                    {% regroup grouped_data by categoryName as category_list %}
+                    {% for category in category_list %}
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3"><i class="fas fa-box"></i> {{ category.grouper|default:"Без категории" }}</h6>
+                        {% regroup category.list by groupName as group_list %}
+                        {% for group in group_list %}
+                        <div class="card card-subgroup mb-2">
+                            <div class="card-header card-header-subgroup">
+                                <strong>{{ group.grouper|default:"Без группы" }}</strong>
+                                <span class="badge bg-secondary float-end">{{ group.list|length }}</span>
+                            </div>
+                            <div class="card-body card-body-subgroup">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Название</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in group.list %}
+                                            <tr>
+                                                <td><code>{{ item.type_id }}</code></td>
+                                                <td>{{ item.typeName|default:"Неизвестно" }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
+                    {% endfor %}
                     {% else %}
                     <div class="alert alert-info alert-theme">
                         <i class="fas fa-info-circle"></i> Нет данных по введенным именам предметов.
@@ -215,6 +228,38 @@
     
     [data-theme="dark"] .table-theme tbody tr:hover {
         background-color: rgba(13, 110, 253, 0.1);
+    }
+    
+    [data-theme="light"] .card-subgroup {
+        background-color: #f8f9fa;
+        border: 1px solid rgba(0, 0, 0, 0.125);
+    }
+    
+    [data-theme="dark"] .card-subgroup {
+        background-color: rgba(13, 110, 253, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.125);
+    }
+    
+    [data-theme="light"] .card-header-subgroup {
+        background-color: #e9ecef;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+        color: #495057;
+    }
+    
+    [data-theme="dark"] .card-header-subgroup {
+        background-color: rgba(13, 110, 253, 0.2);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.125);
+        color: var(--text-color);
+    }
+    
+    [data-theme="light"] .card-body-subgroup {
+        background-color: #ffffff;
+        color: #212529;
+    }
+    
+    [data-theme="dark"] .card-body-subgroup {
+        background-color: rgba(13, 110, 253, 0.05);
+        color: var(--text-color);
     }
 </style>
 {% endblock page_styles %}

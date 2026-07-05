@@ -128,7 +128,8 @@ def assets_overview(request):
 def type_names_lookup(request):
     """Представление для поиска информации о предметах по их именам"""
     result_data = None
-    
+
+    personage = request.user.userprofile.main_character_id
     if request.method == 'POST':
         form = TypeNamesForm(request.POST)
         if form.is_valid():
@@ -140,21 +141,44 @@ def type_names_lookup(request):
                 result_data = get_types_names(type_names_list)
                 # Парсим и сохраняем результаты в модель
                 if result_data:
-                    parse_and_save_type_search_results(result_data)
+                    parse_and_save_type_search_results(result_data,personage)
     else:
         form = TypeNamesForm()
+        result_data = {}
+        grouped_data = []
+        try:
+            type_names_save = TypeSearchResult.objects.filter(character_id=personage)
+            for type_name in type_names_save:
+                result_data[type_name.type_id] = {
+
+                    'categoryID': type_name.category_id,
+                    'categoryName': type_name.category_name,
+                    'groupID': type_name.group_id,
+                    'groupName': type_name.group_name,
+                    'typeName': type_name.type_name,
+                }
+                grouped_data.append({
+                    'type_id': type_name.type_id,
+                    'categoryName': type_name.category_name,
+                    'groupName': type_name.group_name,
+                    'typeName': type_name.type_name,
+                })
+                
+        except TypeSearchResult.DoesNotExist:
+            pass
     
     return render(request, 'type_names_lookup.html', {
         'form': form,
         'result_data': result_data,
+        'grouped_data': grouped_data,
     })
 
 
-def parse_and_save_type_search_results(type_data):
+def parse_and_save_type_search_results(type_data, personage):
     """Функция для парсинга данных и сохранения их в модель TypeSearchResult"""
     if not type_data:
         return
-    
+    pers = EveCharacter.objects.get(character_id=personage)
     for type_id, type_info in type_data.items():
         # Извлекаем данные из словаря
         type_name = type_info.get('typeName', '')
@@ -172,6 +196,7 @@ def parse_and_save_type_search_results(type_data):
                 'group_name': group_name,
                 'category_id': category_id,
                 'category_name': category_name,
+                'character': pers,
             }
         )
 
