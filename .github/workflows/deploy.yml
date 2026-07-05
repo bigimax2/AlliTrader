@@ -45,6 +45,7 @@ jobs:
           pip install -r requirements.txt
           
           echo "🔄 Run migrations"
+          python manage.py makemigrations
           python manage.py migrate --noinput
           
           echo "📊 Collect static files"
