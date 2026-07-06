@@ -50,42 +50,62 @@
                     </div>
                 </div>
                 <div class="card-body card-body-theme">
-                    {% if grouped_data %}
-                    {% regroup grouped_data by categoryName as category_list %}
-                    {% for category in category_list %}
-                    <div class="mb-4">
-                        <h6 class="text-primary mb-3"><i class="fas fa-box"></i> {{ category.grouper|default:"Без категории" }}</h6>
-                        {% regroup category.list by groupName as group_list %}
-                        {% for group in group_list %}
-                        <div class="card card-subgroup mb-2">
-                            <div class="card-header card-header-subgroup">
-                                <strong>{{ group.grouper|default:"Без группы" }}</strong>
-                                <span class="badge bg-secondary float-end">{{ group.list|length }}</span>
-                            </div>
-                            <div class="card-body card-body-subgroup">
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-striped table-hover">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>ID</th>
-                                                <th>Название</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for item in group.list %}
-                                            <tr>
-                                                <td><code>{{ item.type_id }}</code></td>
-                                                <td>{{ item.typeName|default:"Неизвестно" }}</td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
+                    {% if accordion_data %}
+                    <form method="post" action="{% url 'observer_assets_all:delete_selected_type_search_results' %}" onsubmit="return confirm('Удалить выбранные предметы из списка?');">
+                        {% csrf_token %}
+                    <div id="accordionResults" class="accordion">
+                    {% for category_name, items in accordion_data.items %}
+                    {% regroup items by groupName as group_list %}
+                    <div class="accordion-item mb-3">
+                        <h2 class="accordion-header" id="headingCategory{{ forloop.counter }}">
+                            <button class="accordion-button collapsed card-header card-header-theme" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCategory{{ forloop.counter }}" aria-expanded="false" aria-controls="collapseCategory{{ forloop.counter }}">
+                                <i class="fas fa-box"></i> {{ category_name|default:"Без категории" }}
+                                <span class="badge bg-secondary ms-2">{{ items|length }}</span>
+                            </button>
+                        </h2>
+                        <div id="collapseCategory{{ forloop.counter }}" class="accordion-collapse collapse" aria-labelledby="headingCategory{{ forloop.counter }}" data-bs-parent="#accordionResults">
+                            <div class="accordion-body card-body card-body-theme">
+                                {% for group in group_list %}
+                                <div class="card card-subgroup mb-2">
+                                    <div class="card-header card-header-subgroup">
+                                        <strong>{{ group.grouper|default:"Без группы" }}</strong>
+                                        <span class="badge bg-secondary float-end">{{ group.list|length }}</span>
+                                    </div>
+                                    <div class="card-body card-body-subgroup">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped table-hover">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th style="width: 40px;"><input type="checkbox" class="category-checkbox" data-category="{{ category_name }}"></th>
+                                                        <th>ID</th>
+                                                        <th>Название</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for item in group.list %}
+                                                    <tr>
+                                                        <td><input type="checkbox" name="selected_items[]" value="{{ item.type_id }}" class="item-checkbox"></td>
+                                                        <td><code>{{ item.type_id }}</code></td>
+                                                        <td>{{ item.typeName|default:"Неизвестно" }}</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
+                                {% endfor %}
                             </div>
                         </div>
-                        {% endfor %}
                     </div>
                     {% endfor %}
+                    </div> <!-- close accordion -->
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash"></i> Удалить выбранные
+                        </button>
+                    </div>
+                    </form>
                     {% else %}
                     <div class="alert alert-info alert-theme">
                         <i class="fas fa-info-circle"></i> Нет данных по введенным именам предметов.
@@ -261,6 +281,101 @@
         background-color: rgba(13, 110, 253, 0.05);
         color: var(--text-color);
     }
+    
+    /* Стили для аккордеона */
+    .accordion {
+        --bs-accordion-bg: transparent;
+    }
+    
+    .accordion-button {
+        font-weight: 600;
+        padding: 1rem 1.25rem;
+    }
+    
+    .accordion-button:not(.collapsed) {
+        background-color: var(--accordion-bg);
+        color: var(--text-color);
+    }
+    
+    .accordion-button:focus {
+        border-color: rgba(255, 255, 255, 0.25);
+        box-shadow: none;
+    }
+    
+    .accordion-item {
+        background: transparent;
+        border: none;
+    }
+    
+    .accordion-body {
+        padding: 1rem 1.25rem;
+    }
+    
+    /* Стили для чекбоксов */
+    .category-checkbox {
+        cursor: pointer;
+    }
+    
+    .item-checkbox {
+        cursor: pointer;
+    }
+    
+    [data-theme="light"] .accordion-button {
+        background-color: #f8f9fa;
+        color: #212529;
+    }
+    
+    [data-theme="dark"] .accordion-button {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+    }
+    
+    [data-theme="light"] .accordion-button:not(.collapsed) {
+        background-color: #e9ecef;
+    }
+    
+    [data-theme="dark"] .accordion-button:not(.collapsed) {
+        background-color: rgba(13, 110, 253, 0.2);
+    }
 </style>
 {% endblock page_styles %}
+
+{% block page_scripts %}
+<script>
+// Клик по чекбоксу "Выбрать все" в заголовке (для каждой категории)
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('category-checkbox')) {
+        const category = e.target.dataset.category;
+        const checkboxes = document.querySelectorAll(`table tbody input[type="checkbox"]`);
+        const currentCategoryCheckboxes = document.querySelectorAll(`table tbody tr:has(.category-checkbox[data-category="${category}"]) input[type="checkbox"]`);
+        
+        // Находим чекбоксы текущей открытой категории
+        const isOpenCategory = e.target.closest('.accordion-collapse.show');
+        if (isOpenCategory) {
+            const isOpenCategoryCheckboxes = isOpenCategory.querySelectorAll('tbody input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = e.target.checked);
+        }
+    }
+});
+
+// Клик по чекбоксу "Выбрать все" в заголовке (глобальный)
+document.getElementById('selectAll')?.addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('table tbody input[type="checkbox"]:not(.category-checkbox)');
+    checkboxes.forEach(cb => cb.checked = this.checked);
+});
+
+// Обновление состояния "Выбрать все" при изменении отдельных чекбоксов
+const individualCheckboxes = document.querySelectorAll('table tbody input[type="checkbox"]:not(.category-checkbox)');
+individualCheckboxes.forEach(cb => {
+    cb.addEventListener('change', function() {
+        const allCheckboxes = document.querySelectorAll('table tbody input[type="checkbox"]:not(.category-checkbox)');
+        const allChecked = Array.from(allCheckboxes).every(checkbox => checkbox.checked);
+        const selectAllCheckbox = document.getElementById('selectAll');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = allChecked;
+        }
+    });
+});
+</script>
+{% endblock page_scripts %}
 {% endblock content %}

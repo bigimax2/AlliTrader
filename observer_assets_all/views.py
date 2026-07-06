@@ -1,5 +1,7 @@
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from django.views.decorators.http import require_http_methods
 from esi.models import Token
 
 from authenticated.decorators import app_access_required
@@ -125,10 +127,47 @@ def assets_overview(request):
 
 @app_access_required(ObserverAssetsAllConfig.name)
 @login_required
+@require_http_methods(["POST"])
+def delete_selected_type_search_results(request):
+    """Массовое удаление записей из TypeSearchResult"""
+    try:
+        type_ids = request.POST.getlist('selected_items[]')
+        
+        if not type_ids:
+            messages.warning(request, 'Не выбрано ни одного элемента для удаления')
+            return redirect('observer_assets_all:type_names_lookup')
+        
+        # Получаем ID персонажа пользователя
+        try:
+            personage = request.user.userprofile.main_character_id
+        except AttributeError:
+            personage = None
+        
+        if personage is None:
+            messages.error(request, 'Не найден основной персонаж пользователя')
+            return redirect('observer_assets_all:type_names_lookup')
+        
+        # Удаляем только записи текущего пользователя
+        deleted_count, _ = TypeSearchResult.objects.filter(
+            type_id__in=type_ids,
+            character__character_id=personage
+        ).delete()
+        
+        messages.success(request, f'Удалено {deleted_count} предмет(ов) из списка')
+        
+    except Exception as e:
+        messages.error(request, f'Ошибка удаления: {e}')
+    
+    return redirect('observer_assets_all:type_names_lookup')
+
+
+@app_access_required(ObserverAssetsAllConfig.name)
+@login_required
 def type_names_lookup(request):
     """Представление для поиска информации о предметах по их именам"""
     result_data = {}
     grouped_data = []
+    accordion_data = {}  # Данные для аккордеона: категория -> список итемов
 
     try:
         personage = request.user.userprofile.main_character_id
@@ -140,6 +179,7 @@ def type_names_lookup(request):
             'form': TypeNamesForm(),
             'result_data': result_data,
             'grouped_data': grouped_data,
+            'accordion_data': accordion_data,
         })
     
     if request.method == 'POST':
@@ -154,6 +194,16 @@ def type_names_lookup(request):
                 # Парсим и сохраняем результаты в модель
                 if result_data:
                     parse_and_save_type_search_results(result_data,personage)
+                    # Подготовка данных для аккордеона
+                    for type_id, type_info in result_data.items():
+                        category_name = type_info.get('categoryName', 'Без категории')
+                        if category_name not in accordion_data:
+                            accordion_data[category_name] = []
+                        accordion_data[category_name].append({
+                            'type_id': type_id,
+                            'groupName': type_info.get('groupName', ''),
+                            'typeName': type_info.get('typeName', ''),
+                        })
         else:
             form = TypeNamesForm()
     else:
@@ -179,11 +229,21 @@ def type_names_lookup(request):
                     'groupName': type_name.group_name,
                     'typeName': type_name.type_name,
                 })
+                # Подготовка данных для аккордеона
+                category_name = type_name.category_name or 'Без категории'
+                if category_name not in accordion_data:
+                    accordion_data[category_name] = []
+                accordion_data[category_name].append({
+                    'type_id': type_name.type_id,
+                    'groupName': type_name.group_name,
+                    'typeName': type_name.type_name,
+                })
     
     return render(request, 'type_names_lookup.html', {
         'form': form,
         'result_data': result_data,
         'grouped_data': grouped_data,
+        'accordion_data': accordion_data,
     })
 
 
