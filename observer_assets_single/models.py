@@ -25,6 +25,8 @@ class EveLocation(models.Model):
     location_id = models.PositiveBigIntegerField(primary_key=True, null=False, blank=False)
     location_name = models.CharField(max_length=255, null=True, blank=True)
     location_type = models.CharField(max_length=50, null=True, blank=True)
+    structure_name = models.CharField(max_length=255, null=True, blank=True, help_text="Имя структуры (контейнера)")
+    is_structure = models.BooleanField(default=False, help_text="Является ли локация структурой (контейнером)")
 
     class Meta:
         verbose_name = "Локация"
@@ -40,6 +42,13 @@ class Asset(models.Model):
     item_id = models.PositiveBigIntegerField(null=False, blank=False, unique=True)
     
     location_flag = models.CharField(max_length=50, null=True, blank=True)
+    
+    # Ссылка на родительский контейнер (если актив внутри контейнера)
+    parent_item_id = models.PositiveBigIntegerField(
+        null=True, 
+        blank=True,
+        help_text="ID контейнера, в котором находится актив (если есть)"
+    )
     
     # Связь с локацией для получения имени
     location = models.ForeignKey(

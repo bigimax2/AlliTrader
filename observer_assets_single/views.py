@@ -19,6 +19,60 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def get_asset_names(character, item_ids):
+    """
+    Получение имен ассетов (включая структуры) через ESI endpoint
+    
+    Args:
+        character: Объект EveCharacter
+        item_ids: Список item_id для получения имен
+    
+    Returns:
+        Словарь {item_id: {'item_id': x, 'name': y, 'type_id': z}}
+    """
+    from django.apps import apps
+    
+    if not item_ids:
+        return {}
+    
+    try:
+        eveonline_config = apps.get_app_config('eveonline')
+        esi = eveonline_config.esi
+        
+        if not esi:
+            logger.warning("ESI client не инициализирован")
+            return {}
+        
+        # Получаем токен для запроса
+        token = Token.objects.get(character_id=character.character_id)
+        
+        # Batch-запрос имен (ESI принимает до 1000 item_id за раз)
+        # Разбиваем на части по 1000, если нужно
+        all_names = {}
+        for i in range(0, len(item_ids), 1000):
+            batch_ids = item_ids[i:i + 1000]
+            
+            names_response = esi.client.Character.GetCharactersCharacterIdAssetsNames(
+                character_id=character.character_id,
+                item_ids=batch_ids,
+                token=token
+            )
+            
+            names_data = names_response.results()
+            if hasattr(names_data, 'data'):
+                names_data = names_data.data
+            
+            # Преобразуем в словарь {item_id: {'item_id': x, 'name': y, 'type_id': z}}
+            if isinstance(names_data, list):
+                batch_names = {item['item_id']: item for item in names_data}
+                all_names.update(batch_names)
+        
+        return all_names
+    except Exception as e:
+        logger.error(f"Ошибка при получении имен ассетов для {character.name}: {e}")
+        return {}
+
+
 @app_access_required(ObserverAssetsSingleConfig.name)
 @login_required
 def render_traders(request):
@@ -247,17 +301,33 @@ def parser_assets(assets, character):
     type_ids = set()
     # Собираем все уникальные ID станций
     station_ids = set()
+    # Собираем ID структур для запроса имен
+    structure_item_ids = set()
     for item in assets:
         if item['location_type'] == 'station':
             station_ids.add(item['location_id'])
         type_ids.add(item['type_id'])
+        # Если это структура - сохраняем ID для запроса имени
+        if item['location_type'] == 'structure':
+            structure_item_ids.add(item['item_id'])
     type_data = get_types_info(list(type_ids))
     #Batch-запрос информации о станциях
     stations_data = get_stations_info(list(station_ids))
     
+    # Получаем имена структур через ESI
+    structures_names = get_asset_names(character, list(structure_item_ids))
+    
     for item in assets:
         # Получаем данные станции, если location_type = station
         location_name = f"Location {item['location_id']}"
+        structure_name = None
+        
+        # Если это структура - получаем имя из response
+        if item['location_type'] == 'structure':
+            struct_data = structures_names.get(item['item_id'], {})
+            structure_name = struct_data.get('name')
+            location_name = structure_name or f"Structure {item['location_id']}"
+        
         if item['location_type'] == 'station':
             station_data = stations_data.get(item['location_id'])
             if station_data:
@@ -283,12 +353,14 @@ def parser_assets(assets, character):
             }
         )
         
-        # Создаем или обновляем локацию (чтобы обновлялось имя станции)
+        # Создаем или обновляем локацию (чтобы обновлялось имя станции/структуры)
         location, _ = EveLocation.objects.update_or_create(
             location_id=item['location_id'],
             defaults={
                 'location_name': location_name,
-                'location_type': item['location_type']
+                'location_type': item['location_type'],
+                'structure_name': structure_name,
+                'is_structure': item['location_type'] == 'structure'
             }
         )
         
@@ -298,6 +370,7 @@ def parser_assets(assets, character):
             defaults={
                 'is_singleton': item['is_singleton'],
                 'location_flag': item['location_flag'],
+                'parent_item_id': item.get('parent_item_id'),  # Сохраняем родителя
                 'location': location,  # Связь с локацией
                 'quantity': item['quantity'],
                 'type_id': item_type,  # Передаем объект EveItemType, а не ID

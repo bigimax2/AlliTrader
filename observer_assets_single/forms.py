@@ -120,11 +120,11 @@ def get_group_choices():
 class LocationSelectForm(forms.Form):
     """Форма для множественного выбора локаций из EveLocation"""
     locations = forms.ModelMultipleChoiceField(
-        queryset=EveLocation.objects.filter(location_type='station').order_by('location_name'),
+        queryset=EveLocation.objects.order_by('location_name'),
         widget=forms.SelectMultiple(attrs={'size': '15'}),
         required=False,
         label='Локации',
-        help_text='Выберите одну или несколько станций (удерживайте Ctrl для множественного выбора)'
+        help_text='Выберите одну или несколько станций/структур (удерживайте Ctrl для множественного выбора)'
     )
     
     location_flag = forms.MultipleChoiceField(
