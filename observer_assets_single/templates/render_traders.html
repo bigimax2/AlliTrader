@@ -1,5 +1,6 @@
 {% extends 'index.html' %}
 {% load static %}
+{% load custom_filters %}
 {% block content %}
     <!-- Секция формы выбора локаций -->
     <div class="container-fluid px-4 py-3">
@@ -181,16 +182,102 @@
                                                     </div>
                                                     <div id="location-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}" class="collapse">
                                                         <div class="card-body card-body-theme asset-location-body">
+                                                            {% if location_data %}
+                                                            {# Используем аккордеон для группировки ассетов #}
+                                                            {% with location_data|get_item:location_group.grouper as loc_hierarchy %}
+                                                            {% if loc_hierarchy %}
+                                                            {# Ассеты на открытом пространстве #}
+                                                            {% if loc_hierarchy.open_assets %}
+                                                            <div class="mb-3">
+                                                                <h6 class="text-success"><i class="fas fa-globe"></i> Открытое пространство</h6>
+                                                                <div class="table-responsive">
+                                                                    <table class="table table-striped table-hover table-theme">
+                                                                        <thead class="table-light thead-theme">
+                                                                            <tr>
+                                                                                <th>Название предмета</th>
+                                                                                <th>Категория</th>
+                                                                                <th>Группа</th>
+                                                                                <th>Количество</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            {% for asset in loc_hierarchy.open_assets %}
+                                                                            {% if asset.alert_level == 'critical' %}
+                                                                            <tr class="alert-critical">
+                                                                            {% elif asset.alert_level == 'warning' %}
+                                                                            <tr class="alert-warning">
+                                                                            {% else %}
+                                                                            <tr>
+                                                                            {% endif %}
+                                                                                <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
+                                                                                <td>{{ asset.type_id.category_name|default:"-" }}</td>
+                                                                                <td>{{ asset.type_id.group_name|default:"-" }}</td>
+                                                                                <td>{{ asset.quantity }}</td>
+                                                                            </tr>
+                                                                            {% endfor %}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                            {% endif %}
+                                                                
+                                                            
+                                                            {# Аккордеон для контейнеров #}
+                                                            {% if loc_hierarchy.container_groups %}
+                                                            <div class="accordion accordion-theme" id="containerAccordion-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}">
+                                                                {% for item_id, container_data in loc_hierarchy.container_groups.items %}
+                                                                <div class="accordion-item accordion-item-theme">
+                                                                    <h2 class="accordion-header" id="heading-{{ item_id }}">
+                                                                        <button class="accordion-button accordion-button-theme" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ item_id }}" aria-expanded="false" aria-controls="collapse-{{ item_id }}">
+                                                                            <i class="fas fa-cube"></i> {{ container_data.name }}
+                                                                            <span class="badge bg-secondary ms-2">{{ container_data.assets|length }} предметов</span>
+                                                                        </button>
+                                                                    </h2>
+                                                                    <div id="collapse-{{ item_id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ item_id }}" data-bs-parent="#containerAccordion-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}">
+                                                                        <div class="accordion-body accordion-body-theme">
+                                                                            <div class="table-responsive">
+                                                                                <table class="table table-striped table-hover table-theme">
+                                                                                    <thead class="table-light thead-theme">
+                                                                                        <tr>
+                                                                                            <th>Название предмета</th>
+                                                                                            <th>Категория</th>
+                                                                                            <th>Группа</th>
+                                                                                            <th>Количество</th>
+                                                                                        </tr>
+                                                                                    </thead>
+                                                                                    <tbody>
+                                                                                        {% for asset in container_data.assets %}
+                                                                                        {% if asset.alert_level == 'critical' %}
+                                                                                        <tr class="alert-critical">
+                                                                                        {% elif asset.alert_level == 'warning' %}
+                                                                                        <tr class="alert-warning">
+                                                                                        {% else %}
+                                                                                        <tr>
+                                                                                        {% endif %}
+                                                                                            <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
+                                                                                            <td>{{ asset.type_id.category_name|default:"-" }}</td>
+                                                                                            <td>{{ asset.type_id.group_name|default:"-" }}</td>
+                                                                                            <td>{{ asset.quantity }}</td>
+                                                                                        </tr>
+                                                                                        {% endfor %}
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                {% endfor %}
+                                                            </div>
+                                                            {% else %}
+                                                            {# Если контейнеров нет, показываем все ассеты в одной таблице #}
                                                             <div class="table-responsive">
                                                                 <table class="table table-striped table-hover table-theme">
                                                                     <thead class="table-light thead-theme">
                                                                         <tr>
-                                                                            <th>Локация</th>
                                                                             <th>Название предмета</th>
                                                                             <th>Категория</th>
                                                                             <th>Группа</th>
                                                                             <th>Количество</th>
-                                                                            
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
@@ -202,21 +289,53 @@
                                                                         {% else %}
                                                                         <tr>
                                                                         {% endif %}
-                                                                            <td>{{ asset.location.location_name|default:"Неизвестно" }}</td>
                                                                             <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
                                                                             <td>{{ asset.type_id.category_name|default:"-" }}</td>
                                                                             <td>{{ asset.type_id.group_name|default:"-" }}</td>
                                                                             <td>{{ asset.quantity }}</td>
-
-                                                        </tr>
-                                                        {% endfor %}
-                                                    </tbody>
-                                                </table>
+                                                                        </tr>
+                                                                        {% endfor %}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                            {% endif %}
+                                                            {% else %}
+                                                            {# Если иерархия не найдена, используем старый метод #}
+                                                            <div class="table-responsive">
+                                                                <table class="table table-striped table-hover table-theme">
+                                                                    <thead class="table-light thead-theme">
+                                                                        <tr>
+                                                                            <th>Название предмета</th>
+                                                                            <th>Категория</th>
+                                                                            <th>Группа</th>
+                                                                            <th>Количество</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {% for asset in location_group.list %}
+                                                                        {% if asset.alert_level == 'critical' %}
+                                                                        <tr class="alert-critical">
+                                                                        {% elif asset.alert_level == 'warning' %}
+                                                                        <tr class="alert-warning">
+                                                                        {% else %}
+                                                                        <tr>
+                                                                        {% endif %}
+                                                                            <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
+                                                                            <td>{{ asset.type_id.category_name|default:"-" }}</td>
+                                                                            <td>{{ asset.type_id.group_name|default:"-" }}</td>
+                                                                            <td>{{ asset.quantity }}</td>
+                                                                        </tr>
+                                                                        {% endfor %}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                            {% endif %}
+                                                            {% endwith %}
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                                             {% endfor %}
                                         </div>
                                     </div>

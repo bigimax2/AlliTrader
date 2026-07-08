@@ -73,6 +73,93 @@ def get_asset_names(character, item_ids):
         return {}
 
 
+def build_location_hierarchy(assets, character, token):
+    """
+    Построение иерархии ассетов внутри локации для отображения с аккордеоном.
+    
+    Ассеты на открытом пространстве локации отображаются отдельно.
+    Ассеты внутри контейнеров группируются по контейнерам в аккордеоне.
+    
+    Args:
+        assets: queryset ассетов для одной локации
+        character: Объект EveCharacter
+        token: Токен ESI для запросов имен (не используется, имена берутся из базы)
+    
+    Returns:
+        Словарь с двумя ключами:
+        - 'open_assets': список ассетов на открытом пространстве
+        - 'container_groups': словарь {item_id: {'name': ..., 'assets': [...]}}
+    """
+    from observer_assets_single.models import EveLocation, Asset
+    
+    if not assets:
+        return {'open_assets': [], 'container_groups': {}}
+    
+    # Получаем все ассеты персонажа (не только для текущей локации)
+    # Это нужно, чтобы найти все контейнеры, которые могут содержать ассеты
+    all_character_assets = Asset.objects.filter(
+        character=character
+    ).select_related('type_id').distinct()
+    
+    # Находим item_id контейнеров (singleton предметов) у этого персонажа
+    # Контейнеры - это предметы, которые могут содержать другие ассеты
+    container_item_ids = list(all_character_assets.filter(
+        is_singleton=True
+    ).values_list('item_id', flat=True))
+    
+    # Получаем имена контейнеров из EveLocation
+    containers_names = {}
+    if container_item_ids:
+        locations = EveLocation.objects.filter(location_id__in=container_item_ids)
+        for loc in locations:
+            containers_names[loc.location_id] = {
+                'name': loc.location_name or f"Контейнер {loc.location_id}",
+                'type_id': None,
+            }
+    
+    # Также добавляем имена из type_id, если нет в EveLocation
+    types_to_check = list(all_character_assets.filter(
+        item_id__in=container_item_ids
+    ).exclude(type_id__type_name__isnull=True).values_list('type_id__type_name', flat=True).distinct())
+    
+    # Группируем ассеты
+    open_assets = []
+    container_groups = {}  # {item_id: {'name': ..., 'assets': [...]}}
+    
+    for asset in assets:
+        location_id = asset.location.location_id if asset.location else None
+        
+        # Если location_id совпадает с item_id какого-то контейнера (singleton), значит ассет внутри контейнера
+        if location_id and location_id in container_item_ids:
+            # Проверяем, есть ли имя контейнера в базе
+            if location_id in containers_names:
+                if location_id not in container_groups:
+                    container_groups[location_id] = {
+                        'name': containers_names[location_id]['name'],
+                        'assets': []
+                    }
+                container_groups[location_id]['assets'].append(asset)
+            else:
+                # Контейнер не найден в EveLocation, берем имя из type_id
+                try:
+                    container_asset = all_character_assets.get(item_id=location_id)
+                    container_name = container_asset.type_id.type_name if container_asset.type_id else f"Контейнер {location_id}"
+                    if location_id not in container_groups:
+                        container_groups[location_id] = {
+                            'name': container_name,
+                            'assets': []
+                        }
+                    container_groups[location_id]['assets'].append(asset)
+                except Asset.DoesNotExist:
+                    # Контейнер не найден, считаем ассет на открытом пространстве
+                    open_assets.append(asset)
+        else:
+            # Ассет на открытом пространстве (не внутри контейнера)
+            open_assets.append(asset)
+    
+    return {'open_assets': open_assets, 'container_groups': container_groups}
+
+
 @app_access_required(ObserverAssetsSingleConfig.name)
 @login_required
 def render_traders(request):
@@ -180,6 +267,21 @@ def render_traders(request):
                 
                 logger.info(f"Выбрано локаций: {len(locations_selected)}, ID: {location_ids}")
                 logger.info(f"Найдено ассетов: {assets.count()}")
+                
+                # Группируем ассеты по локациям для отображения с аккордеоном
+                from collections import defaultdict
+                assets_by_location = defaultdict(list)
+                for asset in assets:
+                    loc_id = asset.location.location_id if asset.location else None
+                    if loc_id:
+                        assets_by_location[loc_id].append(asset)
+                
+                # Строим иерархию для каждой локации
+                location_data = {}
+                for loc_id, loc_assets in assets_by_location.items():
+                    location_data[loc_id] = build_location_hierarchy(loc_assets, assets[0].character, None)
+                
+                logger.info(f"Строено иерархий для локаций: {len(location_data)}")
         else:
             logger.error(f"Форма не валидна: {form.errors}")
     else:
@@ -191,6 +293,7 @@ def render_traders(request):
         'form': form,
         'locations_selected': locations_selected,
         'assets': assets,
+        'location_data': location_data if locations_selected else {},
         'user_characters': EveCharacter.objects.filter(ownership_records__user=request.user).order_by('name') if request.user.is_authenticated else [],
         'has_valid_token': has_valid_token if request.user.is_authenticated else False
     })
@@ -303,6 +406,8 @@ def parser_assets(assets, character):
     station_ids = set()
     # Собираем ID структур для запроса имен
     structure_item_ids = set()
+    # Собираем все item_id singleton предметов (корабли, контейнеры) для запроса имен
+    singleton_item_ids = set()
     for item in assets:
         if item['location_type'] == 'station':
             station_ids.add(item['location_id'])
@@ -310,6 +415,9 @@ def parser_assets(assets, character):
         # Если это структура - сохраняем ID для запроса имени
         if item['location_type'] == 'structure':
             structure_item_ids.add(item['item_id'])
+        # Если это singleton предмет (корабль или контейнер) - тоже сохраняем для запроса имени
+        if item['is_singleton']:
+            singleton_item_ids.add(item['item_id'])
     type_data = get_types_info(list(type_ids))
     #Batch-запрос информации о станциях
     stations_data = get_stations_info(list(station_ids))
@@ -317,10 +425,18 @@ def parser_assets(assets, character):
     # Получаем имена структур через ESI
     structures_names = get_asset_names(character, list(structure_item_ids))
     
+    # Собираем имена всех singleton предметов (корабли и контейнеры)
+    all_asset_names = {}
+    if singleton_item_ids:
+        all_asset_names = get_asset_names(character, list(singleton_item_ids))
+    
     for item in assets:
         # Получаем данные станции, если location_type = station
         location_name = f"Location {item['location_id']}"
         structure_name = None
+        
+        # Получаем тип предмета для последующего использования
+        type_info = type_data.get(item['type_id'], {})
         
         # Если это структура - получаем имя из response
         if item['location_type'] == 'structure':
@@ -334,8 +450,28 @@ def parser_assets(assets, character):
                 location_name = station_data.get('stationName', f"Location {item['location_id']}")
             else:
                 logger.warning(f"Не удалось получить данные для станции ID {item['location_id']}")
-        # Создаем или получаем тип предмета
-        type_info = type_data.get(item['type_id'], {})
+        
+        # Если это контейнер/корабль (item['is_singleton'] == True), сохраним его имя в EveLocation
+        # для последующего использования в аккордеоне
+        if item['is_singleton']:
+            container_name = all_asset_names.get(item['item_id'], {}).get('name')
+            # Если имя не найдено в all_asset_names, используем имя из type_data
+            if not container_name:
+                container_name = type_info.get('typeName', f"Item {item['item_id']}")
+            # Обновляем или создаем запись для контейнера/корабля
+            loc, created = EveLocation.objects.update_or_create(
+                location_id=item['item_id'],
+                defaults={
+                    'location_name': container_name,
+                    'location_type': 'item',
+                    'structure_name': container_name,
+                    'is_structure': False
+                }
+            )
+            action = "Created" if created else "Updated"
+            logger.info(f"{action} EveLocation entry for item_id={item['item_id']}: name={container_name}, type=item")
+        else:
+            logger.info(f"Skipping item_id {item['item_id']}, is_singleton={item['is_singleton']}")
         type_name = type_info.get('typeName', f"Type {item['type_id']}")
         group_id = type_info.get('groupID')
         group_name = type_info.get('groupName', '')
