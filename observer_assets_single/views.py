@@ -73,7 +73,7 @@ def get_asset_names(character, item_ids):
         return {}
 
 
-def build_location_hierarchy(assets, character, token):
+def build_location_hierarchy(assets, character):
     """
     Построение иерархии ассетов внутри локации для отображения с аккордеоном.
     
@@ -83,78 +83,56 @@ def build_location_hierarchy(assets, character, token):
     Args:
         assets: queryset ассетов для одной локации
         character: Объект EveCharacter
-        token: Токен ESI для запросов имен (не используется, имена берутся из базы)
     
     Returns:
         Словарь с двумя ключами:
         - 'open_assets': список ассетов на открытом пространстве
         - 'container_groups': словарь {item_id: {'name': ..., 'assets': [...]}}
     """
-    from observer_assets_single.models import EveLocation, Asset
+    from observer_assets_single.models import Asset
     
     if not assets:
         return {'open_assets': [], 'container_groups': {}}
     
-    # Получаем все ассеты персонажа (не только для текущей локации)
-    # Это нужно, чтобы найти все контейнеры, которые могут содержать ассеты
-    all_character_assets = Asset.objects.filter(
-        character=character
-    ).select_related('type_id').distinct()
+    # Получаем item_id всех ассетов в текущей локации
+    location_item_ids = [asset.item_id for asset in assets]
     
-    # Находим item_id контейнеров (singleton предметов) у этого персонажа
-    # Контейнеры - это предметы, которые могут содержать другие ассеты
-    container_item_ids = list(all_character_assets.filter(
-        is_singleton=True
-    ).values_list('item_id', flat=True))
-    
-    # Получаем имена контейнеров из EveLocation
-    containers_names = {}
-    if container_item_ids:
-        locations = EveLocation.objects.filter(location_id__in=container_item_ids)
-        for loc in locations:
-            containers_names[loc.location_id] = {
-                'name': loc.location_name or f"Контейнер {loc.location_id}",
-                'type_id': None,
-            }
-    
-    # Также добавляем имена из type_id, если нет в EveLocation
-    types_to_check = list(all_character_assets.filter(
-        item_id__in=container_item_ids
-    ).exclude(type_id__type_name__isnull=True).values_list('type_id__type_name', flat=True).distinct())
+    # Ищем контейнеры/шипы: получаем все ассеты персонажа, у которых location_id совпадает с item_id любого ассета из локации
+    # Это означает, что данные ассеты находятся Внутри контейнера/шипа
+    container_contents = Asset.objects.filter(
+        character=character,
+        location__location_id__in=location_item_ids
+    ).select_related('location', 'type_id').distinct()
     
     # Группируем ассеты
     open_assets = []
     container_groups = {}  # {item_id: {'name': ..., 'assets': [...]}}
     
+    # Сначала собираем ассеты, которые находятся внутри контейнеров
+    container_assets_map = {}  # {item_id: [assets inside]}
+    for content in container_contents:
+        loc_id = content.location.location_id
+        if loc_id not in container_assets_map:
+            container_assets_map[loc_id] = []
+        container_assets_map[loc_id].append(content)
+    
+    # Затем обрабатываем исходные ассеты
     for asset in assets:
-        location_id = asset.location.location_id if asset.location else None
+        item_id = asset.item_id
         
-        # Если location_id совпадает с item_id какого-то контейнера (singleton), значит ассет внутри контейнера
-        if location_id and location_id in container_item_ids:
-            # Проверяем, есть ли имя контейнера в базе
-            if location_id in containers_names:
-                if location_id not in container_groups:
-                    container_groups[location_id] = {
-                        'name': containers_names[location_id]['name'],
-                        'assets': []
-                    }
-                container_groups[location_id]['assets'].append(asset)
-            else:
-                # Контейнер не найден в EveLocation, берем имя из type_id
-                try:
-                    container_asset = all_character_assets.get(item_id=location_id)
-                    container_name = container_asset.type_id.type_name if container_asset.type_id else f"Контейнер {location_id}"
-                    if location_id not in container_groups:
-                        container_groups[location_id] = {
-                            'name': container_name,
-                            'assets': []
-                        }
-                    container_groups[location_id]['assets'].append(asset)
-                except Asset.DoesNotExist:
-                    # Контейнер не найден, считаем ассет на открытом пространстве
-                    open_assets.append(asset)
+        # Проверяем, есть ли ассеты внутри этого предмета
+        if item_id in container_assets_map:
+            # Это контейнер/ship - добавляем в container_groups
+            # Имя берем от самого объекта контейнера/ship из assets
+            container_name = asset.type_id.type_name if asset.type_id else f"Контейнер {item_id}"
+            
+            container_groups[item_id] = {
+                'name': container_name,
+                'assets': container_assets_map[item_id]
+            }
+            logger.info(f"Found container: item_id={item_id}, name={container_name}")
         else:
-            # Ассет на открытом пространстве (не внутри контейнера)
+            # Это ассет на открытом пространстве
             open_assets.append(asset)
     
     return {'open_assets': open_assets, 'container_groups': container_groups}
@@ -272,14 +250,22 @@ def render_traders(request):
                 from collections import defaultdict
                 assets_by_location = defaultdict(list)
                 for asset in assets:
-                    loc_id = asset.location.location_id if asset.location else None
-                    if loc_id:
-                        assets_by_location[loc_id].append(asset)
+                    location_obj = asset.location if asset.location else None
+                    if location_obj:
+                        assets_by_location[location_obj].append(asset)
                 
                 # Строим иерархию для каждой локации
                 location_data = {}
-                for loc_id, loc_assets in assets_by_location.items():
-                    location_data[loc_id] = build_location_hierarchy(loc_assets, assets[0].character, None)
+                for location_obj, loc_assets in assets_by_location.items():
+                    # Получаем всех уникальных персонажей для этой локации
+                    unique_characters = set(asset.character for asset in loc_assets if asset.character)
+                    if len(unique_characters) == 1:
+                        character = unique_characters.pop()
+                    else:
+                        # Если несколько персонажей, берем первого
+                        character = loc_assets[0].character if loc_assets[0].character else None
+                    
+                    location_data[location_obj.location_id] = build_location_hierarchy(loc_assets, character)
                 
                 logger.info(f"Строено иерархий для локаций: {len(location_data)}")
         else:

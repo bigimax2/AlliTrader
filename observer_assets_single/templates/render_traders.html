@@ -172,6 +172,7 @@
                                         <div class="card-body card-body-theme asset-character-body">
                                             {% regroup character_group.list by location.location_name as location_assets %}
                                             {% for location_group in location_assets %}
+                                            {% with location_group.list.0.location.location_id as location_id %}
                                             <div class="asset-location-section mb-3">
                                                 <div class="card card-theme asset-location-card">
                                                     <div class="card-header card-header-theme asset-location-header" data-bs-toggle="collapse" data-bs-target="#location-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}" style="cursor: pointer;">
@@ -184,7 +185,7 @@
                                                         <div class="card-body card-body-theme asset-location-body">
                                                             {% if location_data %}
                                                             {# Используем аккордеон для группировки ассетов #}
-                                                            {% with location_data|get_item:location_group.grouper as loc_hierarchy %}
+                                                            {% with location_data|get_item:location_id as loc_hierarchy %}
                                                             {% if loc_hierarchy %}
                                                             {# Ассеты на открытом пространстве #}
                                                             {% if loc_hierarchy.open_assets %}
@@ -220,7 +221,6 @@
                                                                 </div>
                                                             </div>
                                                             {% endif %}
-                                                                
                                                             
                                                             {# Аккордеон для контейнеров #}
                                                             {% if loc_hierarchy.container_groups %}
@@ -229,7 +229,7 @@
                                                                 <div class="accordion-item accordion-item-theme">
                                                                     <h2 class="accordion-header" id="heading-{{ item_id }}">
                                                                         <button class="accordion-button accordion-button-theme" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ item_id }}" aria-expanded="false" aria-controls="collapse-{{ item_id }}">
-                                                                            <i class="fas fa-cube"></i> {{ container_data.name }}
+                                                                            <i class="fas fa-cube"></i><span class="ms-2"></span> {{ container_data.name }}
                                                                             <span class="badge bg-secondary ms-2">{{ container_data.assets|length }} предметов</span>
                                                                         </button>
                                                                     </h2>
@@ -336,6 +336,7 @@
                                                     </div>
                                                 </div>
                                             </div>
+                                            {% endwith %}
                                             {% endfor %}
                                         </div>
                                     </div>
