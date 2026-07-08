@@ -2,6 +2,8 @@ from django import forms
 from .models import EveLocation, EveItemType, AlertThreshold
 from eveonline.models import EveCharacter
 from authenticated.models import OwnershipRecord
+from esi.models import Token
+from .scopes_for_traders import SCOPES_FOR_TRADERS
 
 
 def get_character_choices(user):
@@ -120,7 +122,7 @@ def get_group_choices():
 class LocationSelectForm(forms.Form):
     """Форма для множественного выбора локаций из EveLocation"""
     locations = forms.ModelMultipleChoiceField(
-        queryset=EveLocation.objects.order_by('location_name'),
+        queryset=EveLocation.objects.filter(location_type='station').order_by('location_name'),
         widget=forms.SelectMultiple(attrs={'size': '15'}),
         required=False,
         label='Локации',
@@ -168,7 +170,7 @@ class LocationSelectForm(forms.Form):
         required=False,
         label='Персонаж',
         widget=forms.SelectMultiple(attrs={'size': '8'}),
-        help_text='Выберите одного или нескольких персонажей (удерживайте Ctrl для множественного выбора)'
+        help_text='Выберите одного или нескольких персонажей (удерживайте Ctrl для множественного выбора) \n если персонажа не видно в списке, наверно вы не предоставили его токен'
     )
     
     def __init__(self, *args, **kwargs):
@@ -176,8 +178,21 @@ class LocationSelectForm(forms.Form):
         super().__init__(*args, **kwargs)
         # Заполняем список персонажей текущего пользователя через OwnershipRecord
         if user and user.is_authenticated:
+            # Получаем все токены пользователя с нужными scopes
+            token_character_ids = Token.objects.filter(
+                user=user,
+                scopes__name__in=SCOPES_FOR_TRADERS
+            ).values_list('character_id', flat=True).distinct()
+            
+            # Получаем character_id через OwnershipRecord пользователя
             character_ids = OwnershipRecord.objects.filter(user=user).values_list('character_id', flat=True).distinct()
-            characters = EveCharacter.objects.filter(character_id__in=character_ids).order_by('name')
+            
+            # Пересекаем ID: только персонажи с токенами и OwnershipRecord
+            character_ids_with_tokens = set(character_ids) & set(token_character_ids)
+            
+            characters = EveCharacter.objects.filter(
+                character_id__in=character_ids_with_tokens
+            ).order_by('name')
             self.fields['character'].choices = [(char.character_id, char.name) for char in characters]
     
     def clean_locations(self):

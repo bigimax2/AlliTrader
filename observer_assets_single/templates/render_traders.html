@@ -99,7 +99,7 @@
                                         <i class="fas fa-save"></i> Сохранить выбор
                                     </button>
                                     <a href="{% url 'observer_assets_single:get_token_assets' %}" class="btn btn-primary btn-theme">
-                                        <i class="fas fa-sync-alt"></i> Обновить ассеты
+                                        <i class="fas fa-sync-alt"></i> Обновить/зарегистрировать токен
                                     </a>
                                 </div>
                             </div>
@@ -172,12 +172,13 @@
                                         <div class="card-body card-body-theme asset-character-body">
                                             {% regroup character_group.list by location.location_name as location_assets %}
                                             {% for location_group in location_assets %}
-                                            {% with location_group.list.0.location.location_id as location_id %}
+                                            {% with location_id=location_group.list.0.location.location_id %}
+                                            {% with location_name=location_group.grouper %}
                                             <div class="asset-location-section mb-3">
                                                 <div class="card card-theme asset-location-card">
                                                     <div class="card-header card-header-theme asset-location-header" data-bs-toggle="collapse" data-bs-target="#location-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}" style="cursor: pointer;">
                                                         <h5 class="mb-0">
-                                                            <i class="fas fa-map-marker-alt"></i> {{ location_group.grouper|default:"Неизвестно" }}
+                                                            <i class="fas fa-map-marker-alt"></i> {{ location_name|default:"Неизвестно" }}
                                                             <span class="badge bg-secondary float-end">{{ location_group.list|length }} предметов</span>
                                                         </h5>
                                                     </div>
@@ -187,10 +188,12 @@
                                                             {# Используем аккордеон для группировки ассетов #}
                                                             {% with location_data|get_item:location_id as loc_hierarchy %}
                                                             {% if loc_hierarchy %}
+                                                            {% if loc_hierarchy.container_groups %}
+                                                            {# Есть контейнеры: показываем открытые ассеты и аккордеон контейнеров #}
                                                             {# Ассеты на открытом пространстве #}
                                                             {% if loc_hierarchy.open_assets %}
                                                             <div class="mb-3">
-                                                                <h6 class="text-success"><i class="fas fa-globe"></i> Открытое пространство</h6>
+                                                                <h6 class="text-success"><i class="fas fa-globe"></i> Открытое пространство ({{ location_id }})</h6>
                                                                 <div class="table-responsive">
                                                                     <table class="table table-striped table-hover table-theme">
                                                                         <thead class="table-light thead-theme">
@@ -223,7 +226,6 @@
                                                             {% endif %}
                                                             
                                                             {# Аккордеон для контейнеров #}
-                                                            {% if loc_hierarchy.container_groups %}
                                                             <div class="accordion accordion-theme" id="containerAccordion-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}">
                                                                 {% for item_id, container_data in loc_hierarchy.container_groups.items %}
                                                                 <div class="accordion-item accordion-item-theme">
@@ -269,7 +271,7 @@
                                                                 {% endfor %}
                                                             </div>
                                                             {% else %}
-                                                            {# Если контейнеров нет, показываем все ассеты в одной таблице #}
+                                                            {# Нет иерархии или пустая - показываем все ассеты в одной таблице #}
                                                             <div class="table-responsive">
                                                                 <table class="table table-striped table-hover table-theme">
                                                                     <thead class="table-light thead-theme">
@@ -332,6 +334,7 @@
                                                             {% endif %}
                                                             {% endwith %}
                                                             {% endif %}
+                                            {% endwith %}
                                                         </div>
                                                     </div>
                                                 </div>
