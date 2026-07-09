@@ -73,7 +73,7 @@ def get_asset_names(character, item_ids):
         return {}
 
 
-def build_location_hierarchy(assets, character):
+def build_location_hierarchy(assets, character, alert_thresholds):
     """
     Построение иерархии ассетов внутри локации для отображения с аккордеоном.
     
@@ -83,6 +83,7 @@ def build_location_hierarchy(assets, character):
     Args:
         assets: queryset ассетов для одной локации
         character: Объект EveCharacter
+        alert_thresholds: словарь {type_id: min_quantity} для алертов
     
     Returns:
         Словарь с двумя ключами:
@@ -97,12 +98,45 @@ def build_location_hierarchy(assets, character):
     # Получаем item_id всех ассетов в текущей локации
     location_item_ids = [asset.item_id for asset in assets]
     
-    # Ищем контейнеры/шипы: получаем все ассеты персонажа, у которых location_id совпадает с item_id любого ассета из локации
-    # Это означает, что данные ассеты находятся Внутри контейнера/шипа
+    # Собираем все ID контейнеров/кораблей, в которых могут быть ассеты
+    # Это включает как ассеты на открытом пространстве, так и все вложенные контейнеры
+    all_container_ids = set()
+    
+    # Сначала находим все контейнеры (is_singleton=True) среди переданных ассетов
+    for asset in assets:
+        if asset.is_singleton:
+            all_container_ids.add(asset.item_id)
+    
+    # Находим все ассеты, которые находятся внутри любых контейнеров
+    # Ищем по location.location_id (контейнеры на верхнем уровне) и parent_item_id (вложенные ассеты)
     container_contents = Asset.objects.filter(
         character=character,
         location__location_id__in=location_item_ids
     ).select_related('location', 'type_id').distinct()
+    
+    # Добавляем вложенные контейнеры в список
+    nested_container_ids = set()
+    for content in container_contents:
+        if content.is_singleton:
+            nested_container_ids.add(content.item_id)
+    
+    # Если есть вложенные контейнеры, ищем ассеты внутри них рекурсивно
+    while nested_container_ids:
+        nested_contents = Asset.objects.filter(
+            character=character,
+            location__location_id__in=nested_container_ids
+        ).select_related('location', 'type_id').distinct()
+        
+        # Добавляем найденные ассеты в container_contents
+        existing_ids = {c.item_id for c in container_contents}
+        for content in nested_contents:
+            if content.item_id not in existing_ids:
+                container_contents = list(container_contents) + [content]
+                if content.is_singleton:
+                    nested_container_ids.add(content.item_id)
+        
+        # Обновляем список для следующей итерации
+        nested_container_ids = {c.item_id for c in nested_contents if c.is_singleton and c.item_id not in existing_ids}
     
     # Группируем ассеты
     open_assets = []
@@ -115,6 +149,40 @@ def build_location_hierarchy(assets, character):
         if loc_id not in container_assets_map:
             container_assets_map[loc_id] = []
         container_assets_map[loc_id].append(content)
+        logger.info(f"Container content: item_id={content.item_id}, type_id={content.type_id.type_id}, location.location_id={loc_id}, is_singleton={content.is_singleton}")
+    
+    # Копируем атрибут alert_level из исходных ассетов в ассеты из container_contents
+    # Это нужно, потому что container_contents - это новые объекты из БД без alert_level
+    logger.info(f"Kopirovka alert_level: container_assets_map keys={list(container_assets_map.keys())}")
+    
+    # Для каждого ассета внутри контейнера вычисляем alert_level заново по его количеству
+    for item_id, assets_list in container_assets_map.items():
+        for asset in assets_list:
+            type_id = asset.type_id.type_id
+            qty = int(asset.quantity)
+            
+            # Ищем порог для этого type_id
+            threshold = alert_thresholds.get(type_id)
+            if threshold is not None:
+                thresh = int(threshold)
+                critical_threshold = thresh * 0.25
+                warning_threshold = thresh * 0.5
+                
+                if qty <= critical_threshold:
+                    asset.alert_level = 'critical'
+                    logger.info(f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=critical")
+                elif qty <= warning_threshold:
+                    asset.alert_level = 'warning'
+                    logger.info(f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=warning")
+                elif qty == thresh:
+                    asset.alert_level = 'warning'
+                    logger.info(f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=warning (equal to threshold)")
+                else:
+                    asset.alert_level = None
+                    logger.info(f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=None")
+            else:
+                asset.alert_level = None
+                logger.info(f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, no threshold found")
     
     # Затем обрабатываем исходные ассеты
     for asset in assets:
@@ -131,9 +199,13 @@ def build_location_hierarchy(assets, character):
                 'assets': container_assets_map[item_id]
             }
             logger.info(f"Found container: item_id={item_id}, name={container_name}")
+            # Логируем ассеты внутри контейнера
+            for container_asset in container_assets_map[item_id]:
+                logger.info(f"  Container asset: item_id={container_asset.item_id}, type_id={container_asset.type_id.type_id}, quantity={container_asset.quantity}, alert_level={getattr(container_asset, 'alert_level', 'NOT SET')}")
         else:
             # Это ассет на открытом пространстве
             open_assets.append(asset)
+            logger.info(f"Open asset: item_id={item_id}, type_id={asset.type_id.type_id}, alert_level={getattr(asset, 'alert_level', 'NOT SET')}")
     
     return {'open_assets': open_assets, 'container_groups': container_groups}
 
@@ -265,7 +337,7 @@ def render_traders(request):
                         # Если несколько персонажей, берем первого
                         character = loc_assets[0].character if loc_assets[0].character else None
                     
-                    location_data[location_obj.location_id] = build_location_hierarchy(loc_assets, character)
+                    location_data[location_obj.location_id] = build_location_hierarchy(loc_assets, character, alert_thresholds)
                 
                 logger.info(f"Строено иерархий для локаций: {len(location_data)}")
         else:
