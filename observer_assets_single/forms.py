@@ -149,6 +149,13 @@ class LocationSelectForm(forms.Form):
         help_text='Фильтр по типу актива (распакован или нет)'
     )
     
+    show_chized_ships = forms.BooleanField(
+        required=False,
+        label='Показывать зафиченные шипы',
+        widget=forms.CheckboxInput(),
+        help_text='По умолчанию скрыты - чтобы не показывать фиченные шипы в открытом пространстве'
+    )
+    
     category_name = forms.MultipleChoiceField(
         choices=get_category_choices,
         required=False,

@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.db import models
 from observer_assets_single.forms import LocationSelectForm, AlertThresholdForm
 from esi.decorators import token_required
 
@@ -187,6 +188,7 @@ def build_location_hierarchy(assets, character, alert_thresholds):
     # Затем обрабатываем исходные ассеты
     for asset in assets:
         item_id = asset.item_id
+        category_name = asset.type_id.category_name if asset.type_id else None
         
         # Проверяем, есть ли ассеты внутри этого предмета
         if item_id in container_assets_map:
@@ -196,16 +198,17 @@ def build_location_hierarchy(assets, character, alert_thresholds):
             
             container_groups[item_id] = {
                 'name': container_name,
-                'assets': container_assets_map[item_id]
+                'assets': container_assets_map[item_id],
+                'category_name': category_name
             }
-            logger.info(f"Found container: item_id={item_id}, name={container_name}")
+            logger.info(f"Found container: item_id={item_id}, name={container_name}, category_name={category_name}")
             # Логируем ассеты внутри контейнера
             for container_asset in container_assets_map[item_id]:
                 logger.info(f"  Container asset: item_id={container_asset.item_id}, type_id={container_asset.type_id.type_id}, quantity={container_asset.quantity}, alert_level={getattr(container_asset, 'alert_level', 'NOT SET')}")
         else:
             # Это ассет на открытом пространстве
             open_assets.append(asset)
-            logger.info(f"Open asset: item_id={item_id}, type_id={asset.type_id.type_id}, alert_level={getattr(asset, 'alert_level', 'NOT SET')}")
+            logger.info(f"Open asset: item_id={item_id}, type_id={asset.type_id.type_id}, category_name={category_name}, alert_level={getattr(asset, 'alert_level', 'NOT SET')}")
     
     return {'open_assets': open_assets, 'container_groups': container_groups}
 
@@ -223,6 +226,13 @@ def render_traders(request):
         form = LocationSelectForm(request.POST, user=request.user)
         locations_selected = []
         assets = []
+        
+        # Сохраняем состояние чекбокса в session
+        show_chized_ships_value = form.data.get('show_chized_ships')
+        if show_chized_ships_value:
+            request.session['show_chized_ships'] = True
+        else:
+            request.session['show_chized_ships'] = False
         
         if form.is_valid():
             form.save()
@@ -340,10 +350,45 @@ def render_traders(request):
                     location_data[location_obj.location_id] = build_location_hierarchy(loc_assets, character, alert_thresholds)
                 
                 logger.info(f"Строено иерархий для локаций: {len(location_data)}")
+                
+                # Фильтруем зафиченные шипы из container_groups, если не выбрано показывать
+                show_chized_ships = form.cleaned_data.get('show_chized_ships', False)
+                if not show_chized_ships:
+                    for location_id, loc_hierarchy in location_data.items():
+                        if 'container_groups' in loc_hierarchy:
+                            # Удаляем контейнеры, которые являются зафиченными шипами
+                            # зафиченный шип: category_name='Ship' AND location_flag='AssetSafety'
+                            items_to_remove = []
+                            for item_id, container_data in loc_hierarchy['container_groups'].items():
+                                # Ищем исходный ассет для получения category_name и location_flag
+                                container_asset = next(
+                                    (a for a in assets if a.item_id == item_id),
+                                    None
+                                )
+                                if container_asset and container_asset.type_id:
+                                    category_name = container_asset.type_id.category_name
+                                    location_flag = container_asset.location_flag
+                                    
+                                    # Удаляем только если оба условия выполнены
+                                    if category_name == 'Ship' and location_flag == 'AssetSafety':
+                                        items_to_remove.append(item_id)
+                                        logger.info(f"Удален зафиченный шип из контейнеров: item_id={item_id}, category_name={category_name}, location_flag={location_flag}")
+                            
+                            for item_id in items_to_remove:
+                                del loc_hierarchy['container_groups'][item_id]
+                
+                logger.info(f"Фильтрация container_groups завершена")
         else:
             logger.error(f"Форма не валидна: {form.errors}")
     else:
-        form = LocationSelectForm(user=request.user)
+        # GET request - read from session storage
+        show_chized_ships_value = request.session.get('show_chized_ships', False)
+        
+        initial_data = {
+            'show_chized_ships': show_chized_ships_value
+        }
+        
+        form = LocationSelectForm(user=request.user, initial=initial_data)
         locations_selected = []
         assets = []
     
