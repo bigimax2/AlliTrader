@@ -137,7 +137,6 @@
                         
                         {% for character_assets in open_assets_by_character %}
                         {% with character_assets.grouper.character_id as char_id %}
-                        <!-- DEBUG: char_id={{ char_id }}, open_assets count={{ character_assets.list|length }}, container_assets count={{ container_assets_by_character|get_item:char_id|length }} -->
                         <div class="accordion accordion-theme mb-4" id="characterAccordion_{{ character_assets.grouper.character_id }}">
                             <div class="accordion-item accordion-item-theme">
                                 <h2 class="accordion-header" id="heading_{{ character_assets.grouper.character_id }}">
@@ -179,6 +178,7 @@
                                                                         <th>Группа</th>
                                                                         <th>Количество</th>
                                                                         <th>Тип актива</th>
+                                                                        <th>Порог алерта</th>
                                                                         <th>Статус алерта</th>
                                                                     </tr>
                                                                 </thead>
@@ -198,6 +198,13 @@
                                                                                 <span class="badge bg-success">Распакован</span>
                                                                             {% else %}
                                                                                 <span class="badge bg-info">Не распакован</span>
+                                                                            {% endif %}
+                                                                        </td>
+                                                                        <td class="text-center-asset">
+                                                                            {% if asset.alert_threshold %}
+                                                                                <span>{{ asset.alert_threshold }}</span>
+                                                                            {% else %}
+                                                                                <span class="text-muted">-</span>
                                                                             {% endif %}
                                                                         </td>
                                                                         <td>
@@ -232,7 +239,6 @@
                                                                   </h2>
                                                                   <div id="collapse_container_{{ char_id }}_{{ location_assets.grouper|slugify }}_{{ forloop.counter0 }}" class="accordion-collapse collapse" aria-labelledby="heading_container_{{ char_id }}_{{ location_assets.grouper|slugify }}_{{ forloop.counter0 }}" data-bs-parent="#containerAccordion_{{ char_id }}_{{ location_assets.grouper|slugify }}_{{ forloop.counter0 }}">
                                                                       <div class="accordion-body accordion-body-theme">
-                                                                          DEBUG: Локация контейнеров={{ loc_name }}, Локация ассетов={{ location_assets.grouper.location_name }}, Совпадение={{ loc_name|yesno:"Да,Нет" }}, count={{ container_list|length }}
                                                                           <div class="table-responsive table-responsive-theme">
                                                                               <table class="table table-striped table-hover table-theme">
                                                                                   <thead class="table-light thead-theme">
@@ -244,6 +250,7 @@
                                                                                           <th>Группа</th>
                                                                                           <th>Количество</th>
                                                                                           <th>Тип актива</th>
+                                                                                          <th>Порог алерта</th>
                                                                                           <th>Статус алерта</th>
                                                                                       </tr>
                                                                                   </thead>
@@ -263,6 +270,13 @@
                                                                                                   <span class="badge bg-success">Распакован</span>
                                                                                               {% else %}
                                                                                                   <span class="badge bg-info">Не распакован</span>
+                                                                                              {% endif %}
+                                                                                          </td>
+                                                                                          <td class="text-center-asset">
+                                                                                              {% if asset.alert_threshold %}
+                                                                                                  <span>{{ asset.alert_threshold }}</span>
+                                                                                              {% else %}
+                                                                                                  <span class="text-muted">-</span>
                                                                                               {% endif %}
                                                                                           </td>
                                                                                           <td>
@@ -619,6 +633,16 @@
         
         .locations-container {
             max-height: 250px;
+        }
+        
+        /* Стили для центрирования ячейки порога алерта */
+        .text-center-asset {
+            text-align: center;
+        }
+        
+        .text-center-asset span {
+            display: inline-block;
+            min-width: 40px;
         }
     </style>
     {% endblock page_styles %}

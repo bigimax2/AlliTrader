@@ -71,31 +71,6 @@ def add_alerts_to_assets(assets):
     # Получаем ID всех контейнеров
     container_ids = container_assets.values_list('item_id', flat=True).distinct()
     
-    logger.info(f"add_alerts_to_assets: container_ids={list(container_ids)}")
-    
-    # Получаем все ассеты на локациях (включая контейнеры)
-    all_assets_on_locations = Asset.objects.filter(
-        character__character_id__in=character_ids,
-        location_id__in=location_ids
-    ).select_related('character', 'type_id', 'location')
-    
-    logger.info(f"add_alerts_to_assets: all_assets_on_locations count={all_assets_on_locations.count()}")
-    
-    # Получаем контейнеры (is_singleton=True) из всех ассетов на локациях
-    # Исключаем зафиченные шипы (category_name='Ship')
-    container_assets = all_assets_on_locations.filter(
-        is_singleton=True
-    ).exclude(type_id__category_name='Ship')
-    
-    logger.info(f"add_alerts_to_assets: container_assets count={container_assets.count()}")
-    for ca in container_assets:
-        logger.info(f"  Container: item_id={ca.item_id}, location={ca.location.location_name}, type={ca.type_id.type_name}")
-    
-    # Получаем ID всех контейнеров
-    container_ids = container_assets.values_list('item_id', flat=True).distinct()
-    
-    logger.info(f"add_alerts_to_assets: container_ids={list(container_ids)}")
-    
     # Получаем ассеты из контейнеров для всех выбранных персонажей
     # Ассеты внутри контейнеров имеют location__location_id равный item_id контейнера
     container_contents = Asset.objects.filter(
@@ -104,10 +79,6 @@ def add_alerts_to_assets(assets):
     ).exclude(id__in=assets.values_list('id', flat=True)).exclude(id__in=container_assets.values_list('id', flat=True)).select_related(
         'character', 'type_id', 'location'
     ).distinct()
-    
-    logger.info(f"add_alerts_to_assets: container_contents count (by location_id)={container_contents.count()}")
-    for cc in container_contents:
-        logger.info(f"  Container content: item_id={cc.item_id}, location_id={cc.location.location_id}, location={cc.location.location_name}, type={cc.type_id.type_name}")
     
     # Получаем ID всех контейнеров, чтобы найти вложенные контейнеры
     nested_container_ids = set(container_assets.values_list('item_id', flat=True))
@@ -157,6 +128,7 @@ def add_alerts_to_assets(assets):
         if threshold is not None:
             qty = int(asset.quantity)
             thresh = int(threshold)
+            asset.alert_threshold = thresh  # Добавляем порог алерта
             critical_threshold = thresh * 0.25
             warning_threshold = thresh * 0.5
             
@@ -170,6 +142,7 @@ def add_alerts_to_assets(assets):
                 asset.alert_level = None
         else:
             asset.alert_level = None
+            asset.alert_threshold = None
     
     # Добавляем алерты к исходным ассетам
     for asset in assets:
@@ -197,6 +170,7 @@ def add_alerts_to_assets(assets):
         if threshold is not None:
             qty = int(asset.quantity)
             thresh = int(threshold)
+            asset.alert_threshold = thresh  # Добавляем порог алерта
             critical_threshold = thresh * 0.25
             warning_threshold = thresh * 0.5
             
@@ -210,6 +184,7 @@ def add_alerts_to_assets(assets):
                 asset.alert_level = None
         else:
             asset.alert_level = None
+            asset.alert_threshold = None
     
     # Объединяем исходные ассеты и ассеты из контейнеров
     # Добавляем флаг is_container_asset для различия
