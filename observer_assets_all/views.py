@@ -308,6 +308,19 @@ def assets_overview(request):
             open_assets = assets_result['assets']
             container_assets_by_character = assets_result['container_assets_by_character']
             
+            # Фильтруем только ассеты с алертами, если выбрано
+            alert_filter = form.cleaned_data.get('alert_filter', '')
+            if alert_filter == 'with_alerts':
+                # Оставляем только ассеты с alert_level != None
+                open_assets = [asset for asset in open_assets if asset.alert_level is not None]
+                # Извлекаем контейнерные ассеты с алертами
+                filtered_container_assets = {}
+                for char_id, char_assets in container_assets_by_character.items():
+                    filtered_char_assets = [asset for asset in char_assets if asset.alert_level is not None]
+                    if filtered_char_assets:
+                        filtered_container_assets[char_id] = filtered_char_assets
+                container_assets_by_character = filtered_container_assets
+            
             logger.info(f"assets_overview: open_assets={len(open_assets)}, container_assets_by_character keys={list(container_assets_by_character.keys())}")
             
             # Объединяем все контейнерные ассеты для отображения в отдельном блоке (если нужно)

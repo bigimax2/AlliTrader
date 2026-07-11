@@ -84,6 +84,17 @@
                                         <small class="form-text text-muted">{{ form.group_name.help_text }}</small>
                                     </div>
                                 </div>
+                                <div class="col-12 col-md-6 col-lg-3">
+                                    <div class="form-group mb-3">
+                                        <label for="{{ form.alert_filter.id_for_label }}" class="form-label form-label-theme">
+                                            <i class="fas fa-bell"></i> {{ form.alert_filter.label }}
+                                        </label>
+                                        <div class="border rounded p-2">
+                                            {{ form.alert_filter }}
+                                        </div>
+                                        <small class="form-text text-muted">{{ form.alert_filter.help_text }}</small>
+                                    </div>
+                                </div>
                             </div>
                             <div class="row mt-3">
                                 <div class="col-12 d-flex gap-2">
@@ -498,6 +509,18 @@
         [data-theme="dark"] select {
             background-color: rgba(13, 110, 253, 0.1);
             color: var(--text-color);
+        }
+        
+        [data-theme="light"] select.form-select {
+            background-color: #fff;
+            color: #212529;
+            border-color: #ced4da;
+        }
+        
+        [data-theme="dark"] select.form-select {
+            background-color: rgba(13, 110, 253, 0.1);
+            color: var(--text-color);
+            border-color: rgba(13, 110, 253, 0.3);
         }
         
         [data-theme="light"] option {

@@ -159,6 +159,17 @@ class AssetsOverviewForm(forms.Form):
             widget=forms.SelectMultiple(attrs={'size': '8', 'class': 'form-select'}),
             help_text='Выберите одну или несколько групп'
         )
+        
+        self.fields['alert_filter'] = forms.ChoiceField(
+            choices=[
+                ('', 'Все ассеты'),
+                ('with_alerts', 'Только с алертами'),
+            ],
+            required=False,
+            label='Фильтр алертов',
+            widget=forms.Select(attrs={'class': 'form-select'}),
+            help_text='Показать только ассеты с активными алертами'
+        )
 
 
 class TypeNamesForm(forms.Form):
