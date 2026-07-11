@@ -357,7 +357,7 @@ def render_traders(request):
                     for location_id, loc_hierarchy in location_data.items():
                         if 'container_groups' in loc_hierarchy:
                             # Удаляем контейнеры, которые являются зафиченными шипами
-                            # зафиченный шип: category_name='Ship' AND location_flag='AssetSafety'
+                            # зафиченный шип: category_name='Ship'
                             items_to_remove = []
                             for item_id, container_data in loc_hierarchy['container_groups'].items():
                                 # Ищем исходный ассет для получения category_name и location_flag
@@ -370,7 +370,7 @@ def render_traders(request):
                                     location_flag = container_asset.location_flag
                                     
                                     # Удаляем только если оба условия выполнены
-                                    if category_name == 'Ship' and location_flag == 'AssetSafety':
+                                    if category_name == 'Ship':
                                         items_to_remove.append(item_id)
                                         logger.info(f"Удален зафиченный шип из контейнеров: item_id={item_id}, category_name={category_name}, location_flag={location_flag}")
                             

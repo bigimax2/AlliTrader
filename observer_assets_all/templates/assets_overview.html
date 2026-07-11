@@ -1,5 +1,6 @@
 {% extends 'index.html' %}
 {% load static %}
+{% load dict_filters %}
 {% block content %}
     <!-- Секция формы фильтрации -->
     <div class="container-fluid px-4 py-3">
@@ -130,11 +131,13 @@
                         </div>
                     </div>
                     <div class="card-body card-body-theme">
-                        {% if assets %}
+                        {% if open_assets or container_assets_by_character %}
                         <!-- Группировка по персонажам -->
-                        {% regroup assets by character as assets_by_character %}
+                        {% regroup open_assets by character as open_assets_by_character %}
                         
-                        {% for character_assets in assets_by_character %}
+                        {% for character_assets in open_assets_by_character %}
+                        {% with character_assets.grouper.character_id as char_id %}
+                        <!-- DEBUG: char_id={{ char_id }}, open_assets count={{ character_assets.list|length }}, container_assets count={{ container_assets_by_character|get_item:char_id|length }} -->
                         <div class="accordion accordion-theme mb-4" id="characterAccordion_{{ character_assets.grouper.character_id }}">
                             <div class="accordion-item accordion-item-theme">
                                 <h2 class="accordion-header" id="heading_{{ character_assets.grouper.character_id }}">
@@ -143,7 +146,7 @@
                                             <i class="fas fa-user-circle"></i><span class='mx-2'>{{ character_assets.grouper.name|default:"Неизвестно" }}</span>
                                         </span>
                                         <span class="badge bg-secondary flex-shrink-0">
-                                            {{ character_assets.list|length }} ассетов
+                                            {{ character_assets.list|length }} открытых ассетов
                                         </span>
                                     </button>
                                 </h2>
@@ -176,6 +179,7 @@
                                                                         <th>Группа</th>
                                                                         <th>Количество</th>
                                                                         <th>Тип актива</th>
+                                                                        <th>Статус алерта</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
@@ -196,20 +200,109 @@
                                                                                 <span class="badge bg-info">Не распакован</span>
                                                                             {% endif %}
                                                                         </td>
+                                                                        <td>
+                                                                            {% if asset.alert_level == 'critical' %}
+                                                                                <span class="badge bg-danger">Критически низко</span>
+                                                                            {% elif asset.alert_level == 'warning' %}
+                                                                                <span class="badge bg-warning text-dark">Предупреждение</span>
+                                                                            {% else %}
+                                                                                <span class="badge bg-success">OK</span>
+                                                                            {% endif %}
+                                                                        </td>
                                                                     </tr>
                                                                     {% endfor %}
                                                                 </tbody>
                                                             </table>
                                                         </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                                                        <!-- Контейнеры для этой локации -->
+                                                        {% if container_assets_by_character|get_item:char_id|length > 0 %}
+                                                        {% with container_assets_by_character|get_item:char_id as all_containers %}
+                                                        {% regroup all_containers by location.location_name as containers_by_location %}
+                                                        <!-- DEBUG: char_id={{ char_id }}, loc_name={{ location_assets.grouper.location_name }}, containers count={{ containers_by_location|length }} -->
+                                                        {% for loc_name, container_list in containers_by_location %}
+                                                        <!-- Показываем контейнеры для всех локаций этого персонажа -->
+                                                        <div class="accordion accordion-theme mb-3" id="containerAccordion_{{ char_id }}_{{ location_assets.grouper|slugify }}_{{ forloop.counter0 }}">
+                                                              <div class="accordion-item accordion-item-theme">
+                                                                  <h2 class="accordion-header" id="heading_container_{{ char_id }}_{{ location_assets.grouper|slugify }}_{{ forloop.counter0 }}">
+                                                                      <button class="accordion-button accordion-button-theme collapsed d-flex justify-content-between align-items-center w-100" type="button" data-bs-toggle="collapse" data-bs-target="#collapse_container_{{ char_id }}_{{ location_assets.grouper|slugify }}_{{ forloop.counter0 }}" aria-expanded="false" aria-controls="collapse_container_{{ char_id }}_{{ location_assets.grouper|slugify }}_{{ forloop.counter0 }}">
+                                                                          <span class="d-flex align-items-center flex-grow-1">
+                                                                              <i class="fas fa-box"></i> <span class="ms-2">Контейнеры ({{ container_list|length }} предметов)</span>
+                                                                          </span>
+                                                                      </button>
+                                                                  </h2>
+                                                                  <div id="collapse_container_{{ char_id }}_{{ location_assets.grouper|slugify }}_{{ forloop.counter0 }}" class="accordion-collapse collapse" aria-labelledby="heading_container_{{ char_id }}_{{ location_assets.grouper|slugify }}_{{ forloop.counter0 }}" data-bs-parent="#containerAccordion_{{ char_id }}_{{ location_assets.grouper|slugify }}_{{ forloop.counter0 }}">
+                                                                      <div class="accordion-body accordion-body-theme">
+                                                                          DEBUG: Локация контейнеров={{ loc_name }}, Локация ассетов={{ location_assets.grouper.location_name }}, Совпадение={{ loc_name|yesno:"Да,Нет" }}, count={{ container_list|length }}
+                                                                          <div class="table-responsive table-responsive-theme">
+                                                                              <table class="table table-striped table-hover table-theme">
+                                                                                  <thead class="table-light thead-theme">
+                                                                                      <tr>
+                                                                                          <th>Контейнер</th>
+                                                                                          <th>Тип локации</th>
+                                                                                          <th>Предмет</th>
+                                                                                          <th>Категория</th>
+                                                                                          <th>Группа</th>
+                                                                                          <th>Количество</th>
+                                                                                          <th>Тип актива</th>
+                                                                                          <th>Статус алерта</th>
+                                                                                      </tr>
+                                                                                  </thead>
+                                                                                  <tbody>
+                                                                                      {% for asset in container_list %}
+                                                                                      <tr>
+                                                                                          <td>{{ asset.location.location_name|default:"Неизвестно" }}</td>
+                                                                                          <td>
+                                                                                              <span class="badge bg-secondary">{{ asset.location_flag|default:"-" }}</span>
+                                                                                          </td>
+                                                                                          <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
+                                                                                          <td>{{ asset.type_id.category_name|default:"-" }}</td>
+                                                                                          <td>{{ asset.type_id.group_name|default:"-" }}</td>
+                                                                                          <td>{{ asset.quantity }}</td>
+                                                                                          <td>
+                                                                                              {% if asset.is_singleton %}
+                                                                                                  <span class="badge bg-success">Распакован</span>
+                                                                                              {% else %}
+                                                                                                  <span class="badge bg-info">Не распакован</span>
+                                                                                              {% endif %}
+                                                                                          </td>
+                                                                                          <td>
+                                                                                              {% if asset.alert_level == 'critical' %}
+                                                                                                  <span class="badge bg-danger">Критически низко</span>
+                                                                                              {% elif asset.alert_level == 'warning' %}
+                                                                                                  <span class="badge bg-warning text-dark">Предупреждение</span>
+                                                                                              {% else %}
+                                                                                                  <span class="badge bg-success">OK</span>
+                                                                                              {% endif %}
+                                                                                          </td>
+                                                                                      </tr>
+                                                                                      {% endfor %}
+                                                                                  </tbody>
+                                                                              </table>
+                                                                          </div>
+                                                                      </div>
+                                                                  </div>
+                                                              </div>
+                                                          </div>
+                                                          {% endfor %}
+                                                          {% endwith %}
+                                                          {% endif %}
+                                                      </div>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      </div>
+                                      {% endfor %}
+                                  {% endwith %}
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      </div>
+  </div>
+</div>
+                        
                         {% endfor %}
                         
                         {% else %}
@@ -421,6 +514,37 @@
         [data-theme="dark"] option:checked {
             background-color: #4dabf7;
             color: #000;
+        }
+        
+        /* Стили для алертов */
+        [data-theme="light"] .badge-critical {
+            background-color: #dc3545;
+            color: #fff;
+        }
+        
+        [data-theme="dark"] .badge-critical {
+            background-color: #dc3545;
+            color: #fff;
+        }
+        
+        [data-theme="light"] .badge-warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        
+        [data-theme="dark"] .badge-warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        
+        [data-theme="light"] .badge-ok {
+            background-color: #28a745;
+            color: #fff;
+        }
+        
+        [data-theme="dark"] .badge-ok {
+            background-color: #28a745;
+            color: #fff;
         }
         
         /* Стили для аккордеона группировки по персонажам */
