@@ -11,371 +11,352 @@ from observer_assets_all.assets_forms import AssetsOverviewForm, TypeNamesForm
 import logging
 
 logger = logging.getLogger(__name__)
+
 from EVE_Online_SQLite_API import get_types_names
 from observer_assets_all.scopes_for_traders import SCOPES_FOR_TRADERS
 from observer_assets_single.models import EveLocation, EveItemType, AlertThreshold, Asset
 from observer_assets_all.models import TypeSearchResult
 
 
-def add_alerts_to_assets(assets):
+def build_location_hierarchy(assets, character, alert_thresholds):
     """
-    Добавляет поле alert_level к каждому ассету на основе порогов алертов.
-    Алерты фильтруются по пользователям, чьи ассеты присутствуют в выборке.
-    Также получает ассеты из контейнеров и добавляет к ним alert_level.
-    
+    Построение иерархии ассетов внутри локации для отображения с аккордеоном.
+
+    Ассеты на открытом пространстве локации отображаются отдельно.
+    Ассеты внутри контейнеров группируются по контейнерам в аккордеоне.
+
     Args:
-        assets: queryset ассетов
-    
+        assets: queryset ассетов для одной локации
+        character: Объект EveCharacter
+        alert_thresholds: словарь {type_id: min_quantity} для алертов
+
     Returns:
-        queryset ассетов с добавленным полем alert_level (включая ассеты из контейнеров)
+        Словарь с двумя ключами:
+        - 'open_assets': список ассетов на открытом пространстве
+        - 'container_groups': словарь {item_id: {'name': ..., 'assets': [...]}}
     """
-    if not assets.exists():
-        return assets
-    
-    # Получаем unique user_id из выбранных персонажей
-    user_ids = assets.values_list('character__ownership_records__user_id', flat=True).distinct()
-    user_ids = [uid for uid in user_ids if uid is not None]
-    
-    if not user_ids:
-        return assets
-    
-    # Получаем все алерты для этих пользователей
-    # Словарь: {type_id: {user_id: min_quantity}}
-    alert_thresholds = {}
-    thresholds = AlertThreshold.objects.filter(user_id__in=user_ids).select_related('type_id')
-    for threshold in thresholds:
-        type_id = threshold.type_id_id
-        user_id = threshold.user_id
-        if type_id not in alert_thresholds:
-            alert_thresholds[type_id] = {}
-        alert_thresholds[type_id][user_id] = threshold.min_quantity
-    
-    # Получаем ID всех персонажей из текущей выборки
-    character_ids = assets.values_list('character_id', flat=True).distinct()
-    
-    # Получаем ID всех локаций (станций), где находятся ассеты
-    location_ids = assets.values_list('location_id', flat=True).distinct()
-    
-    # Получаем все ассеты на выбранных локациях (без фильтров)
-    all_location_assets = Asset.objects.filter(
-        character__character_id__in=character_ids,
-        location_id__in=location_ids
-    ).select_related('character', 'type_id', 'location')
-    
-    # Получаем контейнеры (is_singleton=True) из всех ассетов на локациях
-    # Исключаем зафиченные шипы (category_name='Ship')
-    container_assets = all_location_assets.filter(
-        is_singleton=True
-    ).exclude(type_id__category_name='Ship')
-    
-    # Получаем ID всех контейнеров
-    container_ids = container_assets.values_list('item_id', flat=True).distinct()
-    
-    # Получаем ассеты из контейнеров для всех выбранных персонажей
-    # Ассеты внутри контейнеров имеют location__location_id равный item_id контейнера
-    container_contents = Asset.objects.filter(
-        character__character_id__in=character_ids,
-        location__location_id__in=container_ids
-    ).exclude(id__in=assets.values_list('id', flat=True)).exclude(id__in=container_assets.values_list('id', flat=True)).select_related(
-        'character', 'type_id', 'location'
-    ).distinct()
-    
-    # Получаем ID всех контейнеров, чтобы найти вложенные контейнеры
-    nested_container_ids = set(container_assets.values_list('item_id', flat=True))
-    
-    # Рекурсивно получаем ассеты из вложенных контейнеров
-    while nested_container_ids:
-        # Получаем ассеты внутри текущих контейнеров (по location__location_id)
-        nested_contents = Asset.objects.filter(
-            character__character_id__in=character_ids,
-            location__location_id__in=nested_container_ids
-        ).exclude(id__in=assets.values_list('id', flat=True)).exclude(id__in=container_contents.values_list('id', flat=True)).exclude(id__in=container_assets.values_list('id', flat=True)).select_related(
-            'character', 'type_id', 'location'
-        ).distinct()
-        
-        if not nested_contents:
-            break
-        
-        # Добавляем найденные ассеты в container_contents
-        container_contents = list(container_contents) + list(nested_contents)
-        
-        # Обновляем список контейнеров для следующей итерации
-        nested_container_ids = {c.item_id for c in nested_contents if c.is_singleton}
-    
-    # Добавляем алерты для контейнерных ассетов
-    for asset in container_contents:
-        type_id = asset.type_id_id
-        user_id = None
-        
-        # Получаем user_id через character
-        if asset.character and hasattr(asset.character, 'ownership_records'):
-            user_record = asset.character.ownership_records.first()
-            if user_record:
-                user_id = user_record.user_id
-        
-        # Ищем порог для этого type_id и user_id
-        threshold = None
-        if type_id in alert_thresholds:
-            if user_id and user_id in alert_thresholds[type_id]:
-                threshold = alert_thresholds[type_id][user_id]
-            else:
-                # Если для конкретного пользователя нет порога, берем любой доступный
-                for uid, qty in alert_thresholds[type_id].items():
-                    threshold = qty
-                    break
-        
-        # Вычисляем alert_level
-        if threshold is not None:
-            qty = int(asset.quantity)
-            thresh = int(threshold)
-            asset.alert_threshold = thresh  # Добавляем порог алерта
-            critical_threshold = thresh * 0.25
-            warning_threshold = thresh * 0.5
-            
-            if qty <= critical_threshold:
-                asset.alert_level = 'critical'
-            elif qty <= warning_threshold:
-                asset.alert_level = 'warning'
-            elif qty == thresh:
-                asset.alert_level = 'warning'
-            else:
-                asset.alert_level = None
-        else:
-            asset.alert_level = None
-            asset.alert_threshold = None
-    
-    # Добавляем алерты к исходным ассетам
+    from observer_assets_single.models import Asset
+
+    if not assets:
+        return {'open_assets': [], 'container_groups': {}}
+
+    # Получаем item_id всех ассетов в текущей локации
+    location_item_ids = [asset.item_id for asset in assets]
+
+    # Собираем все ID контейнеров/кораблей, в которых могут быть ассеты
+    # Это включает как ассеты на открытом пространстве, так и все вложенные контейнеры
+    all_container_ids = set()
+
+    # Сначала находим все контейнеры (is_singleton=True) среди переданных ассетов
     for asset in assets:
-        type_id = asset.type_id_id
-        user_id = None
-        
-        # Получаем user_id через character
-        if asset.character and hasattr(asset.character, 'ownership_records'):
-            user_record = asset.character.ownership_records.first()
-            if user_record:
-                user_id = user_record.user_id
-        
-        # Ищем порог для этого type_id и user_id
-        threshold = None
-        if type_id in alert_thresholds:
-            if user_id and user_id in alert_thresholds[type_id]:
-                threshold = alert_thresholds[type_id][user_id]
-            else:
-                # Если для конкретного пользователя нет порога, берем любой доступный
-                for uid, qty in alert_thresholds[type_id].items():
-                    threshold = qty
-                    break
-        
-        # Вычисляем alert_level
-        if threshold is not None:
+        if asset.is_singleton:
+            all_container_ids.add(asset.item_id)
+
+    # Находим все ассеты, которые находятся внутри любых контейнеров
+    # Ищем по location.location_id (контейнеры на верхнем уровне) и parent_item_id (вложенные ассеты)
+    container_contents = Asset.objects.filter(
+        character=character,
+        location__location_id__in=location_item_ids
+    ).select_related('location', 'type_id').distinct()
+
+    # Добавляем вложенные контейнеры в список
+    nested_container_ids = set()
+    for content in container_contents:
+        if content.is_singleton:
+            nested_container_ids.add(content.item_id)
+
+    # Если есть вложенные контейнеры, ищем ассеты внутри них рекурсивно
+    while nested_container_ids:
+        nested_contents = Asset.objects.filter(
+            character=character,
+            location__location_id__in=nested_container_ids
+        ).select_related('location', 'type_id').distinct()
+
+        # Добавляем найденные ассеты в container_contents
+        existing_ids = {c.item_id for c in container_contents}
+        for content in nested_contents:
+            if content.item_id not in existing_ids:
+                container_contents = list(container_contents) + [content]
+                if content.is_singleton:
+                    nested_container_ids.add(content.item_id)
+
+        # Обновляем список для следующей итерации
+        nested_container_ids = {c.item_id for c in nested_contents if c.is_singleton and c.item_id not in existing_ids}
+
+    # Группируем ассеты
+    open_assets = []
+    container_groups = {}  # {item_id: {'name': ..., 'assets': [...]}}
+
+    # Сначала собираем ассеты, которые находятся внутри контейнеров
+    container_assets_map = {}  # {item_id: [assets inside]}
+    for content in container_contents:
+        loc_id = content.location.location_id
+        if loc_id not in container_assets_map:
+            container_assets_map[loc_id] = []
+        container_assets_map[loc_id].append(content)
+        logger.info(
+            f"Container content: item_id={content.item_id}, type_id={content.type_id.type_id}, location.location_id={loc_id}, is_singleton={content.is_singleton}")
+
+    # Копируем атрибут alert_level из исходных ассетов в ассеты из container_contents
+    # Это нужно, потому что container_contents - это новые объекты из БД без alert_level
+    logger.info(f"Kopirovka alert_level: container_assets_map keys={list(container_assets_map.keys())}")
+
+    # Для каждого ассета внутри контейнера вычисляем alert_level заново по его количеству
+    for item_id, assets_list in container_assets_map.items():
+        for asset in assets_list:
+            type_id = asset.type_id.type_id
             qty = int(asset.quantity)
-            thresh = int(threshold)
-            asset.alert_threshold = thresh  # Добавляем порог алерта
-            critical_threshold = thresh * 0.25
-            warning_threshold = thresh * 0.5
-            
-            if qty <= critical_threshold:
-                asset.alert_level = 'critical'
-            elif qty <= warning_threshold:
-                asset.alert_level = 'warning'
-            elif qty == thresh:
-                asset.alert_level = 'warning'
+
+            # Ищем порог для этого type_id
+            threshold = alert_thresholds.get(type_id)
+            if threshold is not None:
+                thresh = int(threshold)
+                critical_threshold = thresh * 0.25
+                warning_threshold = thresh * 0.5
+
+                if qty <= critical_threshold:
+                    asset.alert_level = 'critical'
+                    logger.info(
+                        f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=critical")
+                elif qty <= warning_threshold:
+                    asset.alert_level = 'warning'
+                    logger.info(
+                        f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=warning")
+                elif qty == thresh:
+                    asset.alert_level = 'warning'
+                    logger.info(
+                        f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=warning (equal to threshold)")
+                else:
+                    asset.alert_level = None
+                    logger.info(
+                        f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=None")
             else:
                 asset.alert_level = None
+                logger.info(
+                    f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, no threshold found")
+
+    # Затем обрабатываем исходные ассеты
+    for asset in assets:
+        item_id = asset.item_id
+        category_name = asset.type_id.category_name if asset.type_id else None
+
+        # Проверяем, есть ли ассеты внутри этого предмета
+        if item_id in container_assets_map:
+            # Это контейнер/ship - добавляем в container_groups
+            # Имя берем от самого объекта контейнера/ship из assets
+            container_name = asset.type_id.type_name if asset.type_id else f"Контейнер {item_id}"
+
+            container_groups[item_id] = {
+                'name': container_name,
+                'assets': container_assets_map[item_id],
+                'category_name': category_name
+            }
+            logger.info(f"Found container: item_id={item_id}, name={container_name}, category_name={category_name}")
+            # Логируем ассеты внутри контейнера
+            for container_asset in container_assets_map[item_id]:
+                logger.info(
+                    f"  Container asset: item_id={container_asset.item_id}, type_id={container_asset.type_id.type_id}, quantity={container_asset.quantity}, alert_level={getattr(container_asset, 'alert_level', 'NOT SET')}")
         else:
-            asset.alert_level = None
-            asset.alert_threshold = None
-    
-    # Объединяем исходные ассеты и ассеты из контейнеров
-    # Добавляем флаг is_container_asset для различия
-    logger.info(f"add_alerts_to_assets: open_assets count={assets.count() if hasattr(assets, 'count') else len(assets)}")
-    logger.info(f"add_alerts_to_assets: container_contents count={container_contents.count() if hasattr(container_contents, 'count') else len(container_contents)}")
-    
-    # Группируем контейнерные ассеты по персонажам
-    from collections import defaultdict
-    container_assets_by_character = defaultdict(list)
-    
-    for asset in container_contents:
-        asset.is_container_asset = True
-        # Получаем character_id для группировки
-        char_id = asset.character.character_id if asset.character else None
-        if char_id:
-            container_assets_by_character[char_id].append(asset)
-        logger.info(f"Container asset: item_id={asset.item_id}, type_id={asset.type_id_id}, quantity={asset.quantity}, location={asset.location.location_name}")
-    
-    # Возвращаем dict с двумя ключами
-    return {
-        'assets': list(assets),
-        'container_assets_by_character': dict(container_assets_by_character)
-    }
+            # Это ассет на открытом пространстве
+            open_assets.append(asset)
+            logger.info(
+                f"Open asset: item_id={item_id}, type_id={asset.type_id.type_id}, category_name={category_name}, alert_level={getattr(asset, 'alert_level', 'NOT SET')}")
+
+    return {'open_assets': open_assets, 'container_groups': container_groups}
 
 
 @app_access_required(ObserverAssetsAllConfig.name)
 @login_required
 def assets_overview(request):
-    """Представление для отображения всех ассетов всех персонажей с токенами доступа"""
-    from observer_assets_single.models import Asset
-
     # Проверяем, есть ли у пользователя хотя бы один токен с нужными scopes
     has_valid_token = Token.objects.filter(
         user=request.user,
         scopes__name__in=SCOPES_FOR_TRADERS
     ).exists()
 
-    # Получаем всех персонажей с токенами доступа к ассетам
-    characters_with_assets = EveCharacter.objects.filter(
-        ownership_records__user=request.user
-    ).order_by('name').distinct()
-
-    # Получаем всех персонажей (для формы фильтрации)
-    # Запрашиваем персонажей, у которых есть токен с доступом к ассетам
-    all_characters = EveCharacter.objects.filter(
-        ownership_records__user__isnull=False
-    ).filter(
-        character_id__in=Token.objects.filter(scopes__name__in=SCOPES_FOR_TRADERS).values_list('character_id',
-                                                                                               flat=True)
-    ).order_by('name').distinct()
-
-    # Если нет персонажей с токенами, используем всех персонажей пользователя
-    if not all_characters.exists():
-        all_characters = characters_with_assets
-
-    # Получаем все доступные локации
-    all_locations = EveLocation.objects.filter(location_type='station').order_by('location_name')
-
-    # Получаем все уникальные категории и группы для фильтрации
-    all_categories = EveItemType.objects.exclude(category_name='').values_list('category_name',
-                                                                               flat=True).distinct().order_by(
-        'category_name')
-    all_groups = EveItemType.objects.exclude(group_name='').values_list('group_name', flat=True).distinct().order_by(
-        'group_name')
-
-    assets = Asset.objects.all()
-
     if request.method == 'POST':
-        form = AssetsOverviewForm(request.POST, user=request.user, all_locations=all_locations,
-                                  all_categories=all_categories, all_groups=all_groups, user_characters=all_characters)
-        if form.is_valid():
-            character_ids = form.cleaned_data.get('character', [])
-            location_ids = form.cleaned_data.get('locations', [])
-            location_flags = form.cleaned_data.get('location_flag', [])
-            is_singleton = form.cleaned_data.get('is_singleton', '')
-            category_names = form.cleaned_data.get('category_name', [])
-            group_names = form.cleaned_data.get('group_name', [])
+        form = AssetsOverviewForm(request.POST, user=request.user)
+        locations_selected = []
+        assets = []
 
-            # Применяем фильтры
-            # Фильтруем по персонажам (проверяем, не выбран ли 'Выбрать всех')
-            if character_ids:
-                # Если в списке есть '__all__', берем всех персонажей
-                if '__all__' not in character_ids:
-                    assets = assets.filter(character__character_id__in=character_ids)
-
-            # Фильтруем по локациям (проверяем, не выбрана ли 'Выбрать все')
-            if location_ids:
-                # Если в списке есть '__all__', берем только локации типа station
-                if '__all__' in location_ids:
-                    assets = assets.filter(location__location_type='station')
-                else:
-                    assets = assets.filter(location__location_id__in=location_ids)
-            else:
-                # Если локации не выбраны, фильтруем по station по умолчанию
-                assets = assets.filter(location__location_type='station')
-
-            if location_flags and '' not in location_flags:
-                assets = assets.filter(location_flag__in=location_flags)
-
-            if is_singleton:
-                if is_singleton == '1':
-                    assets = assets.filter(is_singleton=True)
-                else:
-                    assets = assets.filter(is_singleton=False)
-
-            if category_names and '' not in category_names:
-                assets = assets.filter(type_id__category_name__in=category_names)
-
-            if group_names and '' not in group_names:
-                assets = assets.filter(type_id__group_name__in=group_names)
-
-            assets = assets.select_related('character', 'type_id', 'location').order_by('character__name',
-                                                                                        'location__location_name',
-                                                                                        'type_id__type_name')
-            
-            # Добавляем алерты для выбранных персонажей (включая ассеты из контейнеров)
-            logger.info(f"assets_overview: Выбрано {len(character_ids)} персонажей, {len(location_ids)} локаций")
-            assets_result = add_alerts_to_assets(assets)
-            
-            # Извлекаем открытые ассеты и контейнеры по персонажам
-            open_assets = assets_result['assets']
-            container_assets_by_character = assets_result['container_assets_by_character']
-            
-            # Фильтруем только ассеты с алертами, если выбрано
-            alert_filter = form.cleaned_data.get('alert_filter', '')
-            if alert_filter == 'with_alerts':
-                # Оставляем только ассеты с alert_level != None
-                open_assets = [asset for asset in open_assets if asset.alert_level is not None]
-                # Извлекаем контейнерные ассеты с алертами
-                filtered_container_assets = {}
-                for char_id, char_assets in container_assets_by_character.items():
-                    filtered_char_assets = [asset for asset in char_assets if asset.alert_level is not None]
-                    if filtered_char_assets:
-                        filtered_container_assets[char_id] = filtered_char_assets
-                container_assets_by_character = filtered_container_assets
-            
-            logger.info(f"assets_overview: open_assets={len(open_assets)}, container_assets_by_character keys={list(container_assets_by_character.keys())}")
-            
-            # Объединяем все контейнерные ассеты для отображения в отдельном блоке (если нужно)
-            all_container_assets = []
-            for char_id, char_assets in container_assets_by_character.items():
-                all_container_assets.extend(char_assets)
-                logger.info(f"char_id={char_id}, char_assets count={len(char_assets)}")
-                for ca in char_assets:
-                    logger.info(f"  Container: item_id={ca.item_id}, parent_item_id={ca.parent_item_id}, location={ca.location.location_name}")
-            
-            # Группируем контейнерные ассеты по локации для отображения
-            from collections import defaultdict
-            container_groups = defaultdict(list)
-            for asset in all_container_assets:
-                loc_name = asset.location.location_name or f"Контейнер {asset.location.location_id}"
-                container_groups[loc_name].append(asset)
-                logger.info(f"Container asset grouped: loc_name={loc_name}, item_id={asset.item_id}, type_id={asset.type_id_id}")
-            
-            logger.info(f"container_groups: {dict(container_groups)}")
-            
-            # Используем all_container_assets для отображения в шаблоне
-            container_assets = all_container_assets
+        # Сохраняем состояние чекбокса в session
+        show_chized_ships_value = form.data.get('show_chized_ships')
+        if show_chized_ships_value:
+            request.session['show_chized_ships'] = True
         else:
-            open_assets = Asset.objects.none()
-            container_assets = []
-            container_groups = {}
-            container_assets_by_character = {}
+            request.session['show_chized_ships'] = False
+
+        if form.is_valid():
+            form.save()
+            locations_selected = form.cleaned_data.get('locations', [])
+
+            if locations_selected:
+                # Получаем ID выбранных локаций
+                location_ids = [loc.location_id for loc in locations_selected]
+                location_flag = form.cleaned_data.get('location_flag', '')
+
+                # Получаем ассеты для выбранных локаций
+                from observer_assets_single.models import Asset
+                # Получаем выбранных персонажей или всех персонажей с токенами доступа к ассетам
+                selected_characters = form.cleaned_data.get('character', [])
+                if selected_characters:
+                    character_ids = selected_characters
+                else:
+                    # Получаем все character_id с токенами, имеющими доступ к ассетам
+                    character_ids = Token.objects.filter(
+                        scopes__name__in=SCOPES_FOR_TRADERS
+                    ).values_list('character_id', flat=True).distinct()
+
+                assets = Asset.objects.filter(
+                    character__character_id__in=character_ids,
+                    location__location_id__in=location_ids
+                ).select_related('character', 'type_id', 'location')
+
+                # Фильтруем по location_flag, если указаны
+                location_flags = form.cleaned_data.get('location_flag', [])
+                if location_flags and '' not in location_flags:
+                    assets = assets.filter(location_flag__in=location_flags)
+
+                # Фильтруем по is_singleton, если указан
+                is_singleton = form.cleaned_data.get('is_singleton', '')
+                if is_singleton:
+                    if is_singleton == '1':
+                        assets = assets.filter(is_singleton=True)
+                    else:
+                        assets = assets.filter(is_singleton=False)
+
+                # Фильтруем по category_name, если указан (множественный выбор)
+                category_names = form.cleaned_data.get('category_name', [])
+                if category_names and '' not in category_names:
+                    assets = assets.filter(type_id__category_name__in=category_names)
+
+                # Фильтруем по group_name, если указан (множественный выбор)
+                group_names = form.cleaned_data.get('group_name', [])
+                # Если в списке только '' или пустой список - не фильтруем по группам
+                if group_names:
+                    # Фильтруем только по непустым значениям
+                    real_group_names = [g for g in group_names if g]
+                    if real_group_names:
+                        assets = assets.filter(type_id__group_name__in=real_group_names)
+
+                assets = assets.order_by('character__name', 'location__location_id', 'type_id')
+
+                # Загружаем пороги алертов для текущего пользователя
+                user_id = request.user.id if request.user.is_authenticated else 0
+                from observer_assets_single.models import AlertThreshold
+                alert_thresholds = {at.type_id_id: at.min_quantity for at in
+                                    AlertThreshold.objects.filter(user_id=user_id)}
+
+                logger.info(f"User ID: {user_id}, Порогов алертов: {len(alert_thresholds)}")
+                logger.info(f"Пороги: {alert_thresholds}")
+
+                # Добавляем информацию о низком количестве
+                for asset in assets:
+                    # Используем asset.type_id.type_id, так как type_id - это ForeignKey объект
+                    threshold = alert_thresholds.get(asset.type_id.type_id)
+                    if threshold is not None:
+                        qty = int(asset.quantity)
+                        thresh = int(threshold)
+                        # critical: qty <= thresh + 15% от thresh (порог + 15%)
+                        # warning: qty <= thresh + 30% от thresh (порог + 30%)
+                        critical_threshold = thresh * 0.25
+                        warning_threshold = thresh * 0.5
+                        logger.info(f"Asset type_id={asset.type_id.type_id}, quantity={qty}, threshold={thresh}")
+                        logger.info(f"  thresholds: critical={critical_threshold}, warning={warning_threshold}")
+
+                        if qty <= critical_threshold:
+                            asset.alert_level = 'critical'
+                            logger.info(f"  -> critical (qty={qty} <= {critical_threshold})")
+                        elif qty <= warning_threshold:
+                            asset.alert_level = 'warning'
+                            logger.info(f"  -> warning (qty={qty} <= {warning_threshold})")
+                        elif qty == thresh:
+                            asset.alert_level = 'warning'
+                            logger.info(f"  -> warning (qty={qty} = {thresh})")
+                        else:
+                            asset.alert_level = None
+                            logger.info(f"  -> None (qty={qty} > {warning_threshold})")
+                    else:
+                        asset.alert_level = None
+                        logger.info(
+                            f"Asset type_id={asset.type_id.type_id}, quantity={asset.quantity}, no threshold found")
+
+                logger.info(f"Выбрано локаций: {len(locations_selected)}, ID: {location_ids}")
+                logger.info(f"Найдено ассетов: {assets.count()}")
+
+                # Группируем ассеты по локациям для отображения с аккордеоном
+                from collections import defaultdict
+                assets_by_location = defaultdict(list)
+                for asset in assets:
+                    location_obj = asset.location if asset.location else None
+                    if location_obj:
+                        assets_by_location[location_obj].append(asset)
+
+                # Строим иерархию для каждой локации
+                location_data = {}
+                for location_obj, loc_assets in assets_by_location.items():
+                    # Получаем всех уникальных персонажей для этой локации
+                    unique_characters = set(asset.character for asset in loc_assets if asset.character)
+                    if len(unique_characters) == 1:
+                        character = unique_characters.pop()
+                    else:
+                        # Если несколько персонажей, берем первого
+                        character = loc_assets[0].character if loc_assets[0].character else None
+
+                    location_data[location_obj.location_id] = build_location_hierarchy(loc_assets, character,
+                                                                                       alert_thresholds)
+
+                logger.info(f"Строено иерархий для локаций: {len(location_data)}")
+
+                # Фильтруем зафиченные шипы из container_groups, если не выбрано показывать
+                show_chized_ships = form.cleaned_data.get('show_chized_ships', False)
+                if not show_chized_ships:
+                    for location_id, loc_hierarchy in location_data.items():
+                        if 'container_groups' in loc_hierarchy:
+                            # Удаляем контейнеры, которые являются зафиченными шипами
+                            # зафиченный шип: category_name='Ship'
+                            items_to_remove = []
+                            for item_id, container_data in loc_hierarchy['container_groups'].items():
+                                # Ищем исходный ассет для получения category_name и location_flag
+                                container_asset = next(
+                                    (a for a in assets if a.item_id == item_id),
+                                    None
+                                )
+                                if container_asset and container_asset.type_id:
+                                    category_name = container_asset.type_id.category_name
+                                    location_flag = container_asset.location_flag
+
+                                    # Удаляем только если оба условия выполнены
+                                    if category_name == 'Ship':
+                                        items_to_remove.append(item_id)
+                                        logger.info(
+                                            f"Удален зафиченный шип из контейнеров: item_id={item_id}, category_name={category_name}, location_flag={location_flag}")
+
+                            for item_id in items_to_remove:
+                                del loc_hierarchy['container_groups'][item_id]
+
+                logger.info(f"Фильтрация container_groups завершена")
+        else:
+            logger.error(f"Форма не валидна: {form.errors}")
     else:
-        form = AssetsOverviewForm(user=request.user, all_locations=all_locations, all_categories=all_categories,
-                                  all_groups=all_groups, user_characters=all_characters)
-        open_assets = Asset.objects.none()  # Не выгружаем ассеты при первом открытии
-        container_assets = []
-        container_groups = {}
-        container_assets_by_character = {}
-    
-    # Считаем总 ассеты (для POST и GET запросов)
-    total_open = len(open_assets) if hasattr(open_assets, '__len__') else (open_assets.count() if hasattr(open_assets, 'count') else 0)
-    total_container = len(container_assets) if hasattr(container_assets, '__len__') else (container_assets.count() if hasattr(container_assets, 'count') else 0)
-    total_assets = total_open + total_container
+        # GET request - read from session storage
+        show_chized_ships_value = request.session.get('show_chized_ships', False)
+
+        initial_data = {
+            'show_chized_ships': show_chized_ships_value
+        }
+
+        form = AssetsOverviewForm(user=request.user, initial=initial_data)
+        locations_selected = []
+        assets = []
 
     return render(request, 'assets_overview.html', {
         'form': form,
-        'open_assets': open_assets,
-        'container_assets': container_assets,
-        'container_groups': dict(container_groups),
-        'container_assets_by_character': container_assets_by_character,
-        'all_characters': all_characters,
-        'user_characters': characters_with_assets,
-        'all_locations': all_locations,
-        'all_categories': all_categories,
-        'all_groups': all_groups,
-        'has_valid_token': has_valid_token if request.user.is_authenticated else False,
-        'total_assets': total_assets,
-        'total_characters': characters_with_assets.count(),
-        'is_filtered': request.method == 'POST',  # Флаг применения фильтров
+        'locations_selected': locations_selected,
+        'assets': assets,
+        'location_data': location_data if locations_selected else {},
+        'user_characters': EveCharacter.objects.filter(assets__isnull=False).distinct().order_by('name') if request.user.is_authenticated else [],
+        'has_valid_token': has_valid_token if request.user.is_authenticated else False
     })
 
 

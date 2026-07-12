@@ -11,7 +11,6 @@ from EVE_Online_SQLite_API import get_stations_info, get_types_info
 from django.contrib.auth.decorators import login_required
 from observer_assets_single.models import EveItemType, AlertThreshold
 from eveonline.models import EveCharacter
-from authenticated.models import OwnershipRecord
 from esi.models import Token
 from django.contrib import messages
 import logging
@@ -245,13 +244,15 @@ def render_traders(request):
                 
                 # Получаем ассеты для выбранных локаций
                 from observer_assets_single.models import Asset
-                # Получаем выбранных персонажей или всех персонажей текущего пользователя через OwnershipRecord
+                # Получаем выбранных персонажей или всех персонажей с токенами доступа к ассетам
                 selected_characters = form.cleaned_data.get('character', [])
                 if selected_characters:
                     character_ids = selected_characters
                 else:
-                    # Получаем character_id через OwnershipRecord пользователя
-                    character_ids = OwnershipRecord.objects.filter(user=request.user).values_list('character_id', flat=True).distinct()
+                    # Получаем все character_id с токенами, имеющими доступ к ассетам
+                    character_ids = Token.objects.filter(
+                        scopes__name__in=SCOPES_FOR_TRADERS
+                    ).values_list('character_id', flat=True).distinct()
                 
                 assets = Asset.objects.filter(
                     character__character_id__in=character_ids,
@@ -397,7 +398,7 @@ def render_traders(request):
         'locations_selected': locations_selected,
         'assets': assets,
         'location_data': location_data if locations_selected else {},
-        'user_characters': EveCharacter.objects.filter(ownership_records__user=request.user).order_by('name') if request.user.is_authenticated else [],
+        'user_characters': EveCharacter.objects.filter(assets__isnull=False).distinct().order_by('name') if request.user.is_authenticated else [],
         'has_valid_token': has_valid_token if request.user.is_authenticated else False
     })
 

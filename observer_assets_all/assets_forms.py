@@ -1,5 +1,10 @@
 from django import forms
+from esi.models import Token
 
+from authenticated.models import OwnershipRecord
+from eveonline.models import EveCharacter
+from observer_assets_all.scopes_for_traders import SCOPES_FOR_TRADERS
+from observer_assets_single.models import EveItemType, EveLocation
 
 LOCATION_FLAGS = [
     ('', 'Все локации'),
@@ -93,83 +98,103 @@ LOCATION_FLAGS = [
     ('Unlocked', 'Unlocked'),
     ('Wardrobe', 'Wardrobe'),
 ]
+# Получаем уникальные категории и группы для фильтрации
+def get_category_choices():
+    categories = EveItemType.objects.exclude(category_name='').values_list('category_name', flat=True).distinct().order_by('category_name')
+    return [('', 'Все категории')] + [(cat, cat) for cat in categories]
 
+def get_group_choices():
+    groups = EveItemType.objects.exclude(group_name='').values_list('group_name', flat=True).distinct().order_by('group_name')
+    return [('', 'Все группы')] + [(grp, grp) for grp in groups]
 
 class AssetsOverviewForm(forms.Form):
-    """Форма для фильтрации ассетов в overview"""
-    
+    """Форма для множественного выбора локаций из EveLocation"""
+    locations = forms.ModelMultipleChoiceField(
+        queryset=EveLocation.objects.filter(location_type='station').order_by('location_name'),
+        widget=forms.SelectMultiple(attrs={'size': '15'}),
+        required=False,
+        label='Локации',
+        help_text='Выберите одну или несколько станций/структур (удерживайте Ctrl для множественного выбора)'
+    )
+
+    location_flag = forms.MultipleChoiceField(
+        choices=LOCATION_FLAGS,
+        required=False,
+        label='Тип локации',
+        widget=forms.SelectMultiple(attrs={'size': '15'}),
+        help_text='Выберите один или несколько типов локаций (удерживайте Ctrl для множественного выбора)'
+    )
+
+    is_singleton = forms.ChoiceField(
+        choices=[
+            ('', 'Все активы'),
+            ('1', 'Распакованные модули'),
+            ('0', 'Не распакованные модули'),
+        ],
+        required=False,
+        label='Тип актива',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        help_text='Фильтр по типу актива (распакован или нет)'
+    )
+
+    show_chized_ships = forms.BooleanField(
+        required=False,
+        label='Показывать зафиченные шипы',
+        widget=forms.CheckboxInput(),
+        help_text='По умолчанию скрыты - чтобы не показывать фиченные шипы в открытом пространстве'
+    )
+
+    category_name = forms.MultipleChoiceField(
+        choices=get_category_choices,
+        required=False,
+        label='Категория предмета',
+        widget=forms.SelectMultiple(attrs={'size': '8'}),
+        help_text='Выберите одну или несколько категорий (удерживайте Ctrl для множественного выбора)'
+    )
+
+    group_name = forms.MultipleChoiceField(
+        choices=get_group_choices,
+        required=False,
+        label='Группа предмета',
+        widget=forms.SelectMultiple(attrs={'size': '8'}),
+        help_text='Выберите одну или несколько групп (удерживайте Ctrl для множественного выбора)'
+    )
+
+    character = forms.MultipleChoiceField(
+        choices=[],
+        required=False,
+        label='Персонаж',
+        widget=forms.SelectMultiple(attrs={'size': '8'}),
+        help_text='Выберите одного или нескольких персонажей (удерживайте Ctrl для множественного выбора) \n отображаются все персонажи с токенами, имеющими доступ к ассетам'
+    )
+
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
-        all_locations = kwargs.pop('all_locations', None)
-        all_categories = kwargs.pop('all_categories', None)
-        all_groups = kwargs.pop('all_groups', None)
-        user_characters = kwargs.pop('user_characters', None)
-        
         super().__init__(*args, **kwargs)
-        
-        # Поля формы
-        self.fields['character'] = forms.MultipleChoiceField(
-            choices=[('__all__', 'Выбрать всех')] + [(char.character_id, char.name) for char in user_characters] if user_characters else [],
-            required=False,
-            label='Персонаж',
-            widget=forms.SelectMultiple(attrs={'size': '8', 'class': 'form-select'}),
-            help_text='Выберите одного или нескольких персонажей'
-        )
-        
-        self.fields['locations'] = forms.MultipleChoiceField(
-            choices=[('__all__', 'Выбрать все')] + [(loc.location_id, loc.location_name) for loc in all_locations] if all_locations else [],
-            required=False,
-            label='Локации',
-            widget=forms.SelectMultiple(attrs={'size': '10', 'class': 'form-select'}),
-            help_text='Выберите одну или несколько станций'
-        )
-        
-        self.fields['location_flag'] = forms.MultipleChoiceField(
-            choices=LOCATION_FLAGS,
-            required=False,
-            label='Тип локации',
-            widget=forms.SelectMultiple(attrs={'size': '8', 'class': 'form-select'}),
-            help_text='Выберите один или несколько типов локаций'
-        )
-        
-        self.fields['is_singleton'] = forms.ChoiceField(
-            choices=[
-                ('', 'Все активы'),
-                ('1', 'Распакованные модули'),
-                ('0', 'Не распакованные модули'),
-            ],
-            required=False,
-            label='Тип актива',
-            widget=forms.Select(attrs={'class': 'form-select'}),
-            help_text='Фильтр по типу актива'
-        )
-        
-        self.fields['category_name'] = forms.MultipleChoiceField(
-            choices=[('', 'Все категории')] + [(cat, cat) for cat in all_categories] if all_categories else [],
-            required=False,
-            label='Категория предмета',
-            widget=forms.SelectMultiple(attrs={'size': '8', 'class': 'form-select'}),
-            help_text='Выберите одну или несколько категорий'
-        )
-        
-        self.fields['group_name'] = forms.MultipleChoiceField(
-            choices=[('', 'Все группы')] + [(grp, grp) for grp in all_groups] if all_groups else [],
-            required=False,
-            label='Группа предмета',
-            widget=forms.SelectMultiple(attrs={'size': '8', 'class': 'form-select'}),
-            help_text='Выберите одну или несколько групп'
-        )
-        
-        self.fields['alert_filter'] = forms.ChoiceField(
-            choices=[
-                ('', 'Все ассеты'),
-                ('with_alerts', 'Только с алертами'),
-            ],
-            required=False,
-            label='Фильтр алертов',
-            widget=forms.Select(attrs={'class': 'form-select'}),
-            help_text='Показать только ассеты с активными алертами'
-        )
+        # Заполняем список персонажей - теперь показываем ВСЕХ персонажей с токенами, имеющими доступ к ассетам
+        if user and user.is_authenticated:
+            # Получаем все токены с нужными scopes (не только пользователя, но и любых других пользователей)
+            token_character_ids = Token.objects.filter(
+                scopes__name__in=SCOPES_FOR_TRADERS
+            ).values_list('character_id', flat=True).distinct()
+
+            characters = EveCharacter.objects.filter(
+                character_id__in=token_character_ids
+            ).order_by('name')
+            self.fields['character'].choices = [(char.character_id, char.name) for char in characters]
+
+    def clean_locations(self):
+        """Валидация выбраных локаций"""
+        locations = self.cleaned_data.get('locations', [])
+        return locations
+
+    def save(self):
+        """Сохранение выбранных локаций (заглушка для сохранения в сессию или БД)"""
+        if self.is_valid():
+            # Здесь можно добавить логику сохранения выбранных локаций
+            # Например, сохранить их в сессию пользователя
+            return self.cleaned_data['locations']
+        return None
 
 
 class TypeNamesForm(forms.Form):
