@@ -388,6 +388,7 @@ def assets_overview(request):
         'locations_selected': locations_selected,
         'assets': assets,
         'location_data': location_data if locations_selected else {},
+        'alert_thresholds': alert_thresholds if locations_selected else {},
         'user_characters': EveCharacter.objects.filter(assets__isnull=False).distinct().order_by('name') if request.user.is_authenticated else [],
         'has_valid_token': has_valid_token if request.user.is_authenticated else False
     })
