@@ -160,6 +160,18 @@ class AssetsOverviewForm(forms.Form):
         help_text='Выберите одну или несколько групп (удерживайте Ctrl для множественного выбора)'
     )
 
+    alert_level = forms.ChoiceField(
+        choices=[
+            ('', 'Все ассеты'),
+            ('critical', 'Только критические алерты'),
+            ('warning', 'Только предупреждения'),
+        ],
+        required=False,
+        label='Уровень алерта',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        help_text='Показывать только ассеты с алертами определенного уровня'
+    )
+
     character = forms.MultipleChoiceField(
         choices=[],
         required=False,

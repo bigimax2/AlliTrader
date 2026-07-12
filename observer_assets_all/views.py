@@ -230,14 +230,18 @@ def assets_overview(request):
                 if category_names and '' not in category_names:
                     assets = assets.filter(type_id__category_name__in=category_names)
 
-                # Фильтруем по group_name, если указан (множественный выбор)
-                group_names = form.cleaned_data.get('group_name', [])
-                # Если в списке только '' или пустой список - не фильтруем по группам
-                if group_names:
-                    # Фильтруем только по непустым значениям
-                    real_group_names = [g for g in group_names if g]
-                    if real_group_names:
-                        assets = assets.filter(type_id__group_name__in=real_group_names)
+                # Загружаем пороги алертов для текущего пользователя
+                user_id = request.user.id if request.user.is_authenticated else 0
+                from observer_assets_single.models import AlertThreshold
+                alert_thresholds = {at.type_id_id: at.min_quantity for at in
+                                    AlertThreshold.objects.filter(user_id=user_id)}
+
+                logger.info(f"User ID: {user_id}, Порогов алертов: {len(alert_thresholds)}")
+                logger.info(f"Пороги: {alert_thresholds}")
+
+                # Фильтруем по alert_level после вычисления для всех ассетов (включая контейнеры)
+                # Для этого сначала строим иерархию, потом фильтруем по alert_level
+                alert_level_filter = form.cleaned_data.get('alert_level', '')
 
                 assets = assets.order_by('character__name', 'location__location_id', 'type_id')
 
@@ -307,6 +311,35 @@ def assets_overview(request):
                                                                                        alert_thresholds)
 
                 logger.info(f"Строено иерархий для локаций: {len(location_data)}")
+
+                # Фильтруем по alert_level после построения иерархии
+                alert_level_filter = form.cleaned_data.get('alert_level', '')
+                if alert_level_filter and location_data:
+                    for location_id, loc_hierarchy in location_data.items():
+                        # Фильтруем open_assets
+                        if 'open_assets' in loc_hierarchy:
+                            loc_hierarchy['open_assets'] = [
+                                asset for asset in loc_hierarchy['open_assets']
+                                if getattr(asset, 'alert_level', None) == alert_level_filter
+                            ]
+                        
+                        # Фильтруем container_groups по ассетам внутри
+                        if 'container_groups' in loc_hierarchy:
+                            filtered_container_groups = {}
+                            for item_id, container_data in loc_hierarchy['container_groups'].items():
+                                filtered_assets = [
+                                    asset for asset in container_data['assets']
+                                    if getattr(asset, 'alert_level', None) == alert_level_filter
+                                ]
+                                if filtered_assets:
+                                    filtered_container_groups[item_id] = {
+                                        'name': container_data['name'],
+                                        'assets': filtered_assets,
+                                        'category_name': container_data.get('category_name')
+                                    }
+                            loc_hierarchy['container_groups'] = filtered_container_groups
+
+                logger.info(f"Фильтрация по alert_level завершена")
 
                 # Фильтруем зафиченные шипы из container_groups, если не выбрано показывать
                 show_chized_ships = form.cleaned_data.get('show_chized_ships', False)
