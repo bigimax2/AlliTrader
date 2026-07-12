@@ -440,6 +440,11 @@
     {% get_img_main_personage %}
 
 <main class="main-content">
+     {% for message in messages %}
+     <div class="alert alert-{{ message.tags }}" style="margin: 10px 20px;">
+         {{ message.message }}
+     </div>
+     {% endfor %}
      {% block content %}
     {% endblock content %}
 </main>

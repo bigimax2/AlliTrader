@@ -181,7 +181,16 @@
                             <i class="fas fa-info-circle"></i> Выбрано локаций: {{ locations_selected|length }}
                         </div>
                         {% endif %}
-                        {% if assets %}
+                        {% if not alert_thresholds %}
+                        <div class="alert alert-warning alert-theme">
+                            <i class="fas fa-exclamation-triangle"></i> У вас не настроены пороги алертов для отслеживания. Пожалуйста, настройте алерты в настройках профиля, чтобы отслеживать количество ассетов.
+                        </div>
+                        {% elif assets %}
+                        {% if not location_data %}
+                        <div class="alert alert-warning alert-theme">
+                            <i class="fas fa-exclamation-triangle"></i> В выбранных локациях нет ассетов с текущим фильтром алертов. Попробуйте изменить фильтр или выбрать другие локации.
+                        </div>
+                        {% else %}
                         <div class="table-responsive table-responsive-theme">
                             {% regroup assets by character.name as character_assets %}
                             {% for character_group in character_assets %}
@@ -227,7 +236,8 @@
                                                                                 <th>Категория</th>
                                                                                 <th>Группа</th>
                                                                                 <th>Количество</th>
-                                                                                <th>Порог алерта</th>
+                                                                                <th>Порог</th>
+                                                                                <th>Алерт</th>
                                                                             </tr>
                                                                         </thead>
                                                                         <tbody>
@@ -243,7 +253,8 @@
                                                                                 <td>{{ asset.type_id.category_name|default:"-" }}</td>
                                                                                 <td>{{ asset.type_id.group_name|default:"-" }}</td>
                                                                                 <td>{{ asset.quantity }}</td>
-                                                                                <td>{% if alert_thresholds|get_item:asset.type_id.type_id %}<span><i class="fas fa-threshold"></i> {{ alert_thresholds|get_item:asset.type_id.type_id }}</span>{% else %}-{% endif %}</td>
+                                                                                <td>{% if alert_thresholds|get_item:asset.type_id.type_id %}<span>{{ alert_thresholds|get_item:asset.type_id.type_id }}</span>{% else %}-{% endif %}</td>
+                                                                                <td>{% if asset.alert_level == 'critical' %}<span class="badge bg-danger"><i class="fas fa-exclamation-triangle"></i> Критический</span>{% elif asset.alert_level == 'warning' %}<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-circle"></i> Предупреждение</span>{% else %}-{% endif %}</td>
                                                                             </tr>
                                                                             {% endfor %}
                                                                         </tbody>
@@ -272,7 +283,8 @@
                                                                                             <th>Категория</th>
                                                                                             <th>Группа</th>
                                                                                             <th>Количество</th>
-                                                                                            <th>Порог алерта</th>
+                                                                                            <th>Порог</th>
+                                                                                            <th>Алерт</th>
                                                                                         </tr>
                                                                                     </thead>
                                                                                     <tbody>
@@ -289,6 +301,7 @@
                                                                                             <td>{{ asset.type_id.group_name|default:"-" }}</td>
                                                                                             <td>{{ asset.quantity }}</td>
                                                                                             <td>{% if alert_thresholds|get_item:asset.type_id.type_id %}<span>{{ alert_thresholds|get_item:asset.type_id.type_id }}</span>{% else %}-{% endif %}</td>
+                                                                                            <td>{% if asset.alert_level == 'critical' %}<span class="badge bg-danger"><i class="fas fa-exclamation-triangle"></i> Критический</span>{% elif asset.alert_level == 'warning' %}<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-circle"></i> Предупреждение</span>{% else %}-{% endif %}</td>
                                                                                         </tr>
                                                                                         {% endfor %}
                                                                                     </tbody>
@@ -309,7 +322,8 @@
                                                                             <th>Категория</th>
                                                                             <th>Группа</th>
                                                                             <th>Количество</th>
-                                                                            <th>Порог алерта</th>
+                                                                            <th>Порог</th>
+                                                                            <th>Алерт</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
@@ -325,6 +339,7 @@
                                                                             <td>{{ asset.type_id.category_name|default:"-" }}</td>
                                                                             <td>{{ asset.type_id.group_name|default:"-" }}</td>
                                                                             <td>{{ asset.quantity }}</td>
+                                                                            <td>{% if alert_thresholds|get_item:asset.type_id.type_id %}<span>{{ alert_thresholds|get_item:asset.type_id.type_id }}</span>{% else %}-{% endif %}</td>
                                                                             <td>{% if asset.alert_level == 'critical' %}<span class="badge bg-danger"><i class="fas fa-exclamation-triangle"></i> Критический</span>{% elif asset.alert_level == 'warning' %}<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-circle"></i> Предупреждение</span>{% else %}-{% endif %}</td>
                                                                         </tr>
                                                                         {% endfor %}
@@ -342,7 +357,8 @@
                                                                             <th>Категория</th>
                                                                             <th>Группа</th>
                                                                             <th>Количество</th>
-                                                                            <th>Порог алерта</th>
+                                                                            <th>Порог</th>
+                                                                            <th>Алерт</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
@@ -358,7 +374,8 @@
                                                                             <td>{{ asset.type_id.category_name|default:"-" }}</td>
                                                                             <td>{{ asset.type_id.group_name|default:"-" }}</td>
                                                                             <td>{{ asset.quantity }}</td>
-                                                                            <td>{% if asset.alert_level == 'critical' %}<span><i class="fas fa-exclamation-triangle"></i> Критический</span>{% elif asset.alert_level == 'warning' %}<span><i class="fas fa-exclamation-circle"></i> Предупреждение</span>{% else %}-{% endif %}</td>
+                                                                            <td>{% if alert_thresholds|get_item:asset.type_id.type_id %}<span>{{ alert_thresholds|get_item:asset.type_id.type_id }}</span>{% else %}-{% endif %}</td>
+                                                                            <td>{% if asset.alert_level == 'critical' %}<span class="badge bg-danger"><i class="fas fa-exclamation-triangle"></i> Критический</span>{% elif asset.alert_level == 'warning' %}<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-circle"></i> Предупреждение</span>{% else %}-{% endif %}</td>
                                                                         </tr>
                                                                         {% endfor %}
                                                                     </tbody>
@@ -380,6 +397,7 @@
                             </div>
                             {% endfor %}
                         </div>
+                        {% endif %}
                         {% else %}
                         <div class="alert alert-warning alert-theme">
                             <i class="fas fa-exclamation-triangle"></i> Ассеты не загружены. Нажмите "Обновить ассеты" для получения данных.

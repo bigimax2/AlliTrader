@@ -7,7 +7,7 @@ from observer_assets_all.scopes_for_traders import SCOPES_FOR_TRADERS
 from observer_assets_single.models import EveItemType, EveLocation
 
 LOCATION_FLAGS = [
-    ('', 'Все локации'),
+    ('', 'Все типы локации'),
     ('AssetSafety', 'Asset Safety'),
     ('AutoFit', 'Auto-fit'),
     ('BoosterBay', 'Booster Bay'),
@@ -117,12 +117,22 @@ class AssetsOverviewForm(forms.Form):
         help_text='Выберите одну или несколько станций/структур (удерживайте Ctrl для множественного выбора)'
     )
 
+    # Дополнительное поле для выбора всех локаций
+    ALL_LOCATIONS_KEY = 'Все локации'
+
     location_flag = forms.MultipleChoiceField(
         choices=LOCATION_FLAGS,
         required=False,
         label='Тип локации',
         widget=forms.SelectMultiple(attrs={'size': '15'}),
         help_text='Выберите один или несколько типов локаций (удерживайте Ctrl для множественного выбора)'
+    )
+
+    show_chized_ships = forms.BooleanField(
+        required=False,
+        label='Показывать зафиченные шипы',
+        widget=forms.CheckboxInput(),
+        help_text='По умолчанию скрыты - чтобы не показывать фиченные шипы в открытом пространстве'
     )
 
     is_singleton = forms.ChoiceField(
@@ -135,13 +145,6 @@ class AssetsOverviewForm(forms.Form):
         label='Тип актива',
         widget=forms.Select(attrs={'class': 'form-select'}),
         help_text='Фильтр по типу актива (распакован или нет)'
-    )
-
-    show_chized_ships = forms.BooleanField(
-        required=False,
-        label='Показывать зафиченные шипы',
-        widget=forms.CheckboxInput(),
-        help_text='По умолчанию скрыты - чтобы не показывать фиченные шипы в открытом пространстве'
     )
 
     category_name = forms.MultipleChoiceField(
@@ -194,6 +197,11 @@ class AssetsOverviewForm(forms.Form):
                 character_id__in=token_character_ids
             ).order_by('name')
             self.fields['character'].choices = [(char.character_id, char.name) for char in characters]
+
+        # Добавляем опцию "Все локации" в начало списка
+        all_locations_choice = (self.ALL_LOCATIONS_KEY, 'Все локации')
+        original_choices = list(self.fields['locations'].queryset.values_list('location_id', 'location_name'))
+        self.fields['locations'].choices = [all_locations_choice] + [(str(loc_id), loc_name) for loc_id, loc_name in original_choices]
 
     def clean_locations(self):
         """Валидация выбраных локаций"""

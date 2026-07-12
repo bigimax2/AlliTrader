@@ -190,6 +190,20 @@ def assets_overview(request):
             form.save()
             locations_selected = form.cleaned_data.get('locations', [])
 
+            # Проверяем, выбрана ли опция "Все локации" (специальное значение)
+            show_all_locations = False
+            for loc in locations_selected:
+                # loc может быть строкой (если выбрана опция "Все локации") или объектом EveLocation
+                loc_value = str(loc) if not hasattr(loc, 'location_id') else str(loc.location_id)
+                if loc_value == form.ALL_LOCATIONS_KEY:
+                    show_all_locations = True
+                    break
+            
+            # Если выбрана опция "показать все локации", загружаем все локации
+            if show_all_locations:
+                locations_selected = EveLocation.objects.filter(location_type='station').order_by('location_name')
+                logger.info("Выбрана опция 'Показать все локации'")
+
             if locations_selected:
                 # Получаем ID выбранных локаций
                 location_ids = [loc.location_id for loc in locations_selected]
@@ -245,15 +259,6 @@ def assets_overview(request):
 
                 assets = assets.order_by('character__name', 'location__location_id', 'type_id')
 
-                # Загружаем пороги алертов для текущего пользователя
-                user_id = request.user.id if request.user.is_authenticated else 0
-                from observer_assets_single.models import AlertThreshold
-                alert_thresholds = {at.type_id_id: at.min_quantity for at in
-                                    AlertThreshold.objects.filter(user_id=user_id)}
-
-                logger.info(f"User ID: {user_id}, Порогов алертов: {len(alert_thresholds)}")
-                logger.info(f"Пороги: {alert_thresholds}")
-
                 # Добавляем информацию о низком количестве
                 for asset in assets:
                     # Используем asset.type_id.type_id, так как type_id - это ForeignKey объект
@@ -287,59 +292,104 @@ def assets_overview(request):
 
                 logger.info(f"Выбрано локаций: {len(locations_selected)}, ID: {location_ids}")
                 logger.info(f"Найдено ассетов: {assets.count()}")
+                logger.info(f"Порогов алертов: {len(alert_thresholds)}")
+                logger.info(f"Выбран фильтр по alert_level: '{alert_level_filter}'")
 
-                # Группируем ассеты по локациям для отображения с аккордеоном
-                from collections import defaultdict
-                assets_by_location = defaultdict(list)
-                for asset in assets:
-                    location_obj = asset.location if asset.location else None
-                    if location_obj:
-                        assets_by_location[location_obj].append(asset)
+                # Если нет настроенных алертов - не отображаем ассеты
+                if not alert_thresholds:
+                    assets = assets.none()
+                    location_data = {}
+                    messages.warning(request, 'У вас не настроены пороги алертов для отслеживания. Пожалуйста, настройте алерты в настройках профиля.')
+                    logger.info("Нет настроенных алертов, ассеты не отображаются")
+                elif alert_level_filter and not alert_thresholds:
+                    assets = assets.none()
+                    location_data = {}
+                    logger.info("Выбран фильтр по алерту, но пороги не найдены")
+                else:
+                    logger.info("Пороги алертов найдены, строим иерархию")
+                    # Группируем ассеты по локациям для отображения с аккордеоном
+                    from collections import defaultdict
+                    assets_by_location = defaultdict(list)
+                    for asset in assets:
+                        location_obj = asset.location if asset.location else None
+                        if location_obj:
+                            assets_by_location[location_obj].append(asset)
 
-                # Строим иерархию для каждой локации
-                location_data = {}
-                for location_obj, loc_assets in assets_by_location.items():
-                    # Получаем всех уникальных персонажей для этой локации
-                    unique_characters = set(asset.character for asset in loc_assets if asset.character)
-                    if len(unique_characters) == 1:
-                        character = unique_characters.pop()
-                    else:
-                        # Если несколько персонажей, берем первого
-                        character = loc_assets[0].character if loc_assets[0].character else None
+                    # Строим иерархию для каждой локации
+                    location_data = {}
+                    for location_obj, loc_assets in assets_by_location.items():
+                        # Получаем всех уникальных персонажей для этой локации
+                        unique_characters = set(asset.character for asset in loc_assets if asset.character)
+                        if len(unique_characters) == 1:
+                            character = unique_characters.pop()
+                        else:
+                            # Если несколько персонажей, берем первого
+                            character = loc_assets[0].character if loc_assets[0].character else None
 
-                    location_data[location_obj.location_id] = build_location_hierarchy(loc_assets, character,
-                                                                                       alert_thresholds)
+                        location_data[location_obj.location_id] = build_location_hierarchy(loc_assets, character,
+                                                                                           alert_thresholds)
 
-                logger.info(f"Строено иерархий для локаций: {len(location_data)}")
+                    logger.info(f"Строено иерархий для локаций: {len(location_data)}")
 
-                # Фильтруем по alert_level после построения иерархии
-                alert_level_filter = form.cleaned_data.get('alert_level', '')
-                if alert_level_filter and location_data:
-                    for location_id, loc_hierarchy in location_data.items():
-                        # Фильтруем open_assets
-                        if 'open_assets' in loc_hierarchy:
-                            loc_hierarchy['open_assets'] = [
-                                asset for asset in loc_hierarchy['open_assets']
-                                if getattr(asset, 'alert_level', None) == alert_level_filter
-                            ]
-                        
-                        # Фильтруем container_groups по ассетам внутри
-                        if 'container_groups' in loc_hierarchy:
-                            filtered_container_groups = {}
-                            for item_id, container_data in loc_hierarchy['container_groups'].items():
-                                filtered_assets = [
-                                    asset for asset in container_data['assets']
+                    # Фильтруем по alert_level после построения иерархии
+                    if alert_level_filter and location_data:
+                        logger.info(f"Применяем фильтр по alert_level: {alert_level_filter}")
+                        for location_id, loc_hierarchy in location_data.items():
+                            # Фильтруем open_assets
+                            if 'open_assets' in loc_hierarchy:
+                                original_count = len(loc_hierarchy['open_assets'])
+                                loc_hierarchy['open_assets'] = [
+                                    asset for asset in loc_hierarchy['open_assets']
                                     if getattr(asset, 'alert_level', None) == alert_level_filter
                                 ]
-                                if filtered_assets:
-                                    filtered_container_groups[item_id] = {
-                                        'name': container_data['name'],
-                                        'assets': filtered_assets,
-                                        'category_name': container_data.get('category_name')
-                                    }
-                            loc_hierarchy['container_groups'] = filtered_container_groups
+                                filtered_count = len(loc_hierarchy['open_assets'])
+                                if original_count != filtered_count:
+                                    logger.info(f"Локация {location_id}: отфильтровано open_assets {original_count} -> {filtered_count}")
+                            
+                            # Фильтруем container_groups по ассетам внутри
+                            if 'container_groups' in loc_hierarchy:
+                                total_container_assets = sum(len(cd['assets']) for cd in loc_hierarchy['container_groups'].values())
+                                filtered_container_groups = {}
+                                for item_id, container_data in loc_hierarchy['container_groups'].items():
+                                    filtered_assets = [
+                                        asset for asset in container_data['assets']
+                                        if getattr(asset, 'alert_level', None) == alert_level_filter
+                                    ]
+                                    if filtered_assets:
+                                        filtered_container_groups[item_id] = {
+                                            'name': container_data['name'],
+                                            'assets': filtered_assets,
+                                            'category_name': container_data.get('category_name')
+                                        }
+                                loc_hierarchy['container_groups'] = filtered_container_groups
+                                total_filtered = sum(len(cd['assets']) for cd in filtered_container_groups.values())
+                                if total_container_assets != total_filtered:
+                                    logger.info(f"Локация {location_id}: отфильтровано container_assets {total_container_assets} -> {total_filtered}")
 
-                logger.info(f"Фильтрация по alert_level завершена")
+                    logger.info(f"Фильтрация по alert_level завершена")
+
+                    # Удаляем локации, где оба списка пустые (нет ассетов, соответствующих фильтру)
+                    if alert_level_filter and location_data:
+                        locations_to_remove = []
+                        for location_id, loc_hierarchy in location_data.items():
+                            open_assets_count = len(loc_hierarchy.get('open_assets', []))
+                            container_assets_count = sum(
+                                len(cd['assets']) for cd in loc_hierarchy.get('container_groups', {}).values()
+                            )
+                            if open_assets_count == 0 and container_assets_count == 0:
+                                locations_to_remove.append(location_id)
+                                logger.info(f"Удаляем локацию {location_id}: нет ассетов, соответствующих фильтру")
+                        
+                        for location_id in locations_to_remove:
+                            del location_data[location_id]
+                        
+                        if locations_to_remove:
+                            logger.info(f"Удалено локаций без ассетов: {len(locations_to_remove)}")
+                        
+                        # Если все локации были удалены, показываем предупреждение
+                        if not location_data:
+                            messages.warning(request, 'В выбранных локациях нет ассетов с текущим фильтром алертов. Попробуйте изменить фильтр или выбрать другие локации.')
+                            logger.info("Все локации были удалены - алертов не найдено")
 
                 # Фильтруем зафиченные шипы из container_groups, если не выбрано показывать
                 show_chized_ships = form.cleaned_data.get('show_chized_ships', False)
@@ -382,6 +432,8 @@ def assets_overview(request):
         form = AssetsOverviewForm(user=request.user, initial=initial_data)
         locations_selected = []
         assets = []
+        location_data = {}
+        alert_thresholds = {}
 
     return render(request, 'assets_overview.html', {
         'form': form,
