@@ -14,8 +14,9 @@ logger = logging.getLogger(__name__)
 
 from EVE_Online_SQLite_API import get_types_names
 from observer_assets_all.scopes_for_traders import SCOPES_FOR_TRADERS
-from observer_assets_single.models import EveLocation, EveItemType, AlertThreshold, Asset
 from observer_assets_all.models import TypeSearchResult
+from observer_assets_single.models import AlertThreshold, Asset, EveLocation, EveItemType, AlertThreshold
+
 
 
 def build_location_hierarchy(assets, character, alert_thresholds):
@@ -168,16 +169,11 @@ def build_location_hierarchy(assets, character, alert_thresholds):
 @app_access_required(ObserverAssetsAllConfig.name)
 @login_required
 def assets_overview(request):
-    # Проверяем, есть ли у пользователя хотя бы один токен с нужными scopes
-    has_valid_token = Token.objects.filter(
-        user=request.user,
-        scopes__name__in=SCOPES_FOR_TRADERS
-    ).exists()
 
     if request.method == 'POST':
         form = AssetsOverviewForm(request.POST, user=request.user)
         locations_selected = []
-        assets = []
+
 
         # Сохраняем состояние чекбокса в session
         show_chized_ships_value = form.data.get('show_chized_ships')
@@ -189,15 +185,13 @@ def assets_overview(request):
         if form.is_valid():
             form.save()
             locations_selected = form.cleaned_data.get('locations', [])
-
             # Проверяем, выбрана ли опция "Все локации" (специальное значение)
             show_all_locations = False
-            for loc in locations_selected:
-                # loc может быть строкой (если выбрана опция "Все локации") или объектом EveLocation
-                loc_value = str(loc) if not hasattr(loc, 'location_id') else str(loc.location_id)
-                if loc_value == form.ALL_LOCATIONS_KEY:
-                    show_all_locations = True
-                    break
+            if locations_selected:
+                for loc in locations_selected:
+                    if str(loc) == form.ALL_LOCATIONS_KEY:
+                        show_all_locations = True
+                        break
             
             # Если выбрана опция "показать все локации", загружаем все локации
             if show_all_locations:
@@ -206,11 +200,21 @@ def assets_overview(request):
 
             if locations_selected:
                 # Получаем ID выбранных локаций
-                location_ids = [loc.location_id for loc in locations_selected]
-                location_flag = form.cleaned_data.get('location_flag', '')
+                # locations_selected может содержать как объекты EveLocation, так и строки (если выбран __ALL_LOCATIONS__)
+                location_ids = []
+                for loc in locations_selected:
+                    if hasattr(loc, 'location_id'):
+                        location_ids.append(loc.location_id)
+                    else:
+                        # Если это строка (ID локации), преобразуем в int
+                        try:
+                            location_ids.append(int(loc))
+                        except (ValueError, TypeError):
+                            pass
+
 
                 # Получаем ассеты для выбранных локаций
-                from observer_assets_single.models import Asset
+
                 # Получаем выбранных персонажей или всех персонажей с токенами доступа к ассетам
                 selected_characters = form.cleaned_data.get('character', [])
                 if selected_characters:
@@ -246,7 +250,7 @@ def assets_overview(request):
 
                 # Загружаем пороги алертов для текущего пользователя
                 user_id = request.user.id if request.user.is_authenticated else 0
-                from observer_assets_single.models import AlertThreshold
+
                 alert_thresholds = {at.type_id_id: at.min_quantity for at in
                                     AlertThreshold.objects.filter(user_id=user_id)}
 
@@ -316,107 +320,111 @@ def assets_overview(request):
                             assets_by_location[location_obj].append(asset)
 
                     # Строим иерархию для каждой локации
+                    # Новая структура: location_data[character_name][location_name] = {"open_assets": [...], "container_groups": {...}}
                     location_data = {}
-                    for location_obj, loc_assets in assets_by_location.items():
-                        # Получаем всех уникальных персонажей для этой локации
-                        unique_characters = set(asset.character for asset in loc_assets if asset.character)
-                        if len(unique_characters) == 1:
-                            character = unique_characters.pop()
-                        else:
-                            # Если несколько персонажей, берем первого
-                            character = loc_assets[0].character if loc_assets[0].character else None
-
-                        location_data[location_obj.location_id] = build_location_hierarchy(loc_assets, character,
-                                                                                           alert_thresholds)
-
-                    logger.info(f"Строено иерархий для локаций: {len(location_data)}")
-
-                    # Фильтруем по alert_level после построения иерархии
-                    if alert_level_filter and location_data:
-                        logger.info(f"Применяем фильтр по alert_level: {alert_level_filter}")
-                        for location_id, loc_hierarchy in location_data.items():
-                            # Фильтруем open_assets
-                            if 'open_assets' in loc_hierarchy:
-                                original_count = len(loc_hierarchy['open_assets'])
-                                loc_hierarchy['open_assets'] = [
-                                    asset for asset in loc_hierarchy['open_assets']
-                                    if getattr(asset, 'alert_level', None) == alert_level_filter
-                                ]
-                                filtered_count = len(loc_hierarchy['open_assets'])
-                                if original_count != filtered_count:
-                                    logger.info(f"Локация {location_id}: отфильтровано open_assets {original_count} -> {filtered_count}")
+                    
+                    # Группируем ассеты по персонажам
+                    assets_by_character = defaultdict(list)
+                    for asset in assets:
+                        if asset.character:
+                            assets_by_character[asset.character].append(asset)
+                    
+                    # Для каждого персонажа группируем по локациям
+                    for character, char_assets in assets_by_character.items():
+                        character_name = character.name if character else "Unknown Character"
+                        
+                        # Группируем ассеты персонажа по локациям
+                        assets_by_location = defaultdict(list)
+                        for asset in char_assets:
+                            location_obj = asset.location if asset.location else None
+                            if location_obj:
+                                assets_by_location[location_obj].append(asset)
+                        
+                        # Для каждой локации строим иерархию
+                        for location_obj, loc_assets in assets_by_location.items():
+                            location_name = location_obj.location_name if location_obj else "Unknown Location"
                             
-                            # Фильтруем container_groups по ассетам внутри
-                            if 'container_groups' in loc_hierarchy:
-                                total_container_assets = sum(len(cd['assets']) for cd in loc_hierarchy['container_groups'].values())
-                                filtered_container_groups = {}
-                                for item_id, container_data in loc_hierarchy['container_groups'].items():
-                                    filtered_assets = [
-                                        asset for asset in container_data['assets']
-                                        if getattr(asset, 'alert_level', None) == alert_level_filter
-                                    ]
-                                    if filtered_assets:
-                                        filtered_container_groups[item_id] = {
-                                            'name': container_data['name'],
-                                            'assets': filtered_assets,
-                                            'category_name': container_data.get('category_name')
-                                        }
-                                loc_hierarchy['container_groups'] = filtered_container_groups
-                                total_filtered = sum(len(cd['assets']) for cd in filtered_container_groups.values())
-                                if total_container_assets != total_filtered:
-                                    logger.info(f"Локация {location_id}: отфильтровано container_assets {total_container_assets} -> {total_filtered}")
+                            # Фильтруем по alert_level до передачи в build_location_hierarchy
+                            if alert_level_filter:
+                                loc_assets = [asset for asset in loc_assets if getattr(asset, 'alert_level', None) == alert_level_filter]
+                                logger.info(f"Локация {location_name}: отфильтровано ассетов до построения иерархии: {len(loc_assets)}")
+                            
+                            # Пропускаем локации, где нет ассетов после фильтрации
+                            if not loc_assets:
+                                continue
+                            
+                            # Создаем вложенную структуру: character -> location -> hierarchy
+                            if character_name not in location_data:
+                                location_data[character_name] = {}
+                            
+                            location_data[character_name][location_name] = build_location_hierarchy(loc_assets, character,
+                                                                                                         alert_thresholds)
+                            logger.info(f"Построена иерархия для персонажа {character_name}, локации {location_name}")
 
-                    logger.info(f"Фильтрация по alert_level завершена")
+                    logger.info(f"Строено иерархий для персонажей: {len(location_data)}")
 
                     # Удаляем локации, где оба списка пустые (нет ассетов, соответствующих фильтру)
                     if alert_level_filter and location_data:
-                        locations_to_remove = []
-                        for location_id, loc_hierarchy in location_data.items():
-                            open_assets_count = len(loc_hierarchy.get('open_assets', []))
-                            container_assets_count = sum(
-                                len(cd['assets']) for cd in loc_hierarchy.get('container_groups', {}).values()
-                            )
-                            if open_assets_count == 0 and container_assets_count == 0:
-                                locations_to_remove.append(location_id)
-                                logger.info(f"Удаляем локацию {location_id}: нет ассетов, соответствующих фильтру")
+                        characters_to_remove = []
+                        for character_name, character_locations in location_data.items():
+                            locations_to_remove = []
+                            for location_name, loc_hierarchy in character_locations.items():
+                                open_assets_count = len(loc_hierarchy.get('open_assets', []))
+                                container_assets_count = sum(
+                                    len(cd['assets']) for cd in loc_hierarchy.get('container_groups', {}).values()
+                                )
+                                if open_assets_count == 0 and container_assets_count == 0:
+                                    locations_to_remove.append(location_name)
+                                    logger.info(f"Удаляем локацию {location_name} у персонажа {character_name}: нет ассетов, соответствующих фильтру")
+                            
+                            # Удаляем пустые локации из словаря персонажа
+                            for location_name in locations_to_remove:
+                                del character_locations[location_name]
+                            
+                            # Если у персонажа не осталось локаций, помечаем его для удаления
+                            if not character_locations:
+                                characters_to_remove.append(character_name)
                         
-                        for location_id in locations_to_remove:
-                            del location_data[location_id]
+                        # Удаляем персонажей без локаций
+                        for character_name in characters_to_remove:
+                            del location_data[character_name]
                         
-                        if locations_to_remove:
-                            logger.info(f"Удалено локаций без ассетов: {len(locations_to_remove)}")
+                        if characters_to_remove or any(len(locs) > 0 for locs in location_data.values()):
+                            logger.info(f"Удалено персонажей без локаций: {len(characters_to_remove)}")
                         
-                        # Если все локации были удалены, показываем предупреждение
+                        # Если все персонажи были удалены, показываем предупреждение
                         if not location_data:
                             messages.warning(request, 'В выбранных локациях нет ассетов с текущим фильтром алертов. Попробуйте изменить фильтр или выбрать другие локации.')
-                            logger.info("Все локации были удалены - алертов не найдено")
+                            logger.info("Все персонажи были удалены - алертов не найдено")
 
                 # Фильтруем зафиченные шипы из container_groups, если не выбрано показывать
                 show_chized_ships = form.cleaned_data.get('show_chized_ships', False)
                 if not show_chized_ships:
-                    for location_id, loc_hierarchy in location_data.items():
-                        if 'container_groups' in loc_hierarchy:
-                            # Удаляем контейнеры, которые являются зафиченными шипами
-                            # зафиченный шип: category_name='Ship'
-                            items_to_remove = []
-                            for item_id, container_data in loc_hierarchy['container_groups'].items():
-                                # Ищем исходный ассет для получения category_name и location_flag
-                                container_asset = next(
-                                    (a for a in assets if a.item_id == item_id),
-                                    None
-                                )
-                                if container_asset and container_asset.type_id:
-                                    category_name = container_asset.type_id.category_name
-                                    location_flag = container_asset.location_flag
+                    for character_name, character_locations in location_data.items():
+                        for location_name, loc_hierarchy in character_locations.items():
+                            if 'container_groups' in loc_hierarchy:
+                                # Удаляем контейнеры, которые являются зафиченными шипами
+                                # зафиченный шип: category_name='Ship'
+                                items_to_remove = []
+                                for item_id, container_data in loc_hierarchy['container_groups'].items():
+                                    # Ищем исходный ассет для получения category_name и location_flag
+                                    container_asset = next(
+                                        (a for a in assets if a.item_id == item_id),
+                                        None
+                                    )
+                                    if container_asset and container_asset.type_id:
+                                        category_name = container_asset.type_id.category_name
+                                        location_flag = container_asset.location_flag
 
-                                    # Удаляем только если оба условия выполнены
-                                    if category_name == 'Ship':
-                                        items_to_remove.append(item_id)
-                                        logger.info(
-                                            f"Удален зафиченный шип из контейнеров: item_id={item_id}, category_name={category_name}, location_flag={location_flag}")
+                                        # Удаляем только если оба условия выполнены
+                                        if category_name == 'Ship':
+                                            items_to_remove.append(item_id)
+                                            logger.info(
+                                                f"Удален зафиченный шип из контейнеров: item_id={item_id}, category_name={category_name}, location_flag={location_flag}")
 
-                            for item_id in items_to_remove:
-                                del loc_hierarchy['container_groups'][item_id]
+                                for item_id in items_to_remove:
+                                    if item_id in loc_hierarchy['container_groups']:
+                                        del loc_hierarchy['container_groups'][item_id]
 
                 logger.info(f"Фильтрация container_groups завершена")
         else:
@@ -431,18 +439,16 @@ def assets_overview(request):
 
         form = AssetsOverviewForm(user=request.user, initial=initial_data)
         locations_selected = []
-        assets = []
         location_data = {}
         alert_thresholds = {}
 
     return render(request, 'assets_overview.html', {
         'form': form,
         'locations_selected': locations_selected,
-        'assets': assets,
         'location_data': location_data if locations_selected else {},
         'alert_thresholds': alert_thresholds if locations_selected else {},
         'user_characters': EveCharacter.objects.filter(assets__isnull=False).distinct().order_by('name') if request.user.is_authenticated else [],
-        'has_valid_token': has_valid_token if request.user.is_authenticated else False
+
     })
 
 

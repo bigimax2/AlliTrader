@@ -109,16 +109,14 @@ def get_group_choices():
 
 class AssetsOverviewForm(forms.Form):
     """Форма для множественного выбора локаций из EveLocation"""
-    locations = forms.ModelMultipleChoiceField(
-        queryset=EveLocation.objects.filter(location_type='station').order_by('location_name'),
-        widget=forms.SelectMultiple(attrs={'size': '15'}),
+    ALL_LOCATIONS_KEY = '__ALL_LOCATIONS__'
+    
+    locations = forms.MultipleChoiceField(
         required=False,
         label='Локации',
+        widget=forms.SelectMultiple(attrs={'size': '15'}),
         help_text='Выберите одну или несколько станций/структур (удерживайте Ctrl для множественного выбора)'
     )
-
-    # Дополнительное поле для выбора всех локаций
-    ALL_LOCATIONS_KEY = 'Все локации'
 
     location_flag = forms.MultipleChoiceField(
         choices=LOCATION_FLAGS,
@@ -197,11 +195,11 @@ class AssetsOverviewForm(forms.Form):
                 character_id__in=token_character_ids
             ).order_by('name')
             self.fields['character'].choices = [(char.character_id, char.name) for char in characters]
-
-        # Добавляем опцию "Все локации" в начало списка
-        all_locations_choice = (self.ALL_LOCATIONS_KEY, 'Все локации')
-        original_choices = list(self.fields['locations'].queryset.values_list('location_id', 'location_name'))
-        self.fields['locations'].choices = [all_locations_choice] + [(str(loc_id), loc_name) for loc_id, loc_name in original_choices]
+        
+        # Заполняем choices для локаций
+        all_locations = [(self.ALL_LOCATIONS_KEY, '__ALL_LOCATIONS__')]
+        station_locations = list(EveLocation.objects.filter(location_type='station').order_by('location_name').values_list('location_id', 'location_name'))
+        self.fields['locations'].choices = all_locations + [(str(loc_id), loc_name) for loc_id, loc_name in station_locations]
 
     def clean_locations(self):
         """Валидация выбраных локаций"""

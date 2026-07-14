@@ -5,7 +5,7 @@
     <!-- Секция формы фильтрации -->
     <div class="container-fluid px-4 py-3" style="
     background-color: #df6813;">
-        {% if has_valid_token %}
+        <!---Начало секции формы --->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card card-theme">
@@ -123,9 +123,7 @@
                                     <button type="submit" class="btn btn-success btn-theme">
                                         <i class="fas fa-save"></i> Сохранить выбор
                                     </button>
-                                    <a href="{% url 'observer_assets_single:get_token_assets' %}" class="btn btn-primary btn-theme">
-                                        <i class="fas fa-sync-alt"></i> Обновить/зарегистрировать токен
-                                    </a>
+
                                 </div>
                             </div>
                         </form>
@@ -133,35 +131,9 @@
                 </div>
             </div>
         </div>
-        {% else %}
-        <!-- Если нет токена с нужными scopes - только кнопка обновления -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card card-theme">
-                    <div class="card-header card-header-theme">
-                        <h5 class="mb-0"><i class="fas fa-info-circle"></i> Ограничение доступа</h5>
-                    </div>
-                    <div class="card-body card-body-theme">
-                        <div class="alert alert-warning alert-theme">
-                            <i class="fas fa-exclamation-triangle"></i> У вас нет токена с правами 'esi-assets.read_assets.v1'.
-                            Для получения доступа к форме фильтрации ассетов необходимо авторизовать хотя бы одного персонажа с нужными scopes.
-                        </div>
-                        <div class="d-flex justify-content-center gap-2">
-                            <a href="{% url 'observer_assets_single:get_token_assets' %}" class="btn btn-primary btn-theme">
-                                <i class="fas fa-sync-alt"></i> Обновить ассеты (авторизовать персонажа)
-                            </a>
-                            <a href="{% url 'observer_assets:assets_overview' %}" class="btn btn-secondary btn-theme">
-                                <i class="fas fa-clipboard-list"></i> Все ассеты
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
+        <!---Конец секции формы --->
 
         <!-- Секция отображения ассетов персонажа -->
-        {% if has_valid_token %}
         <div class="row">
             <div class="col-12">
                 <div class="card card-theme">
@@ -181,53 +153,47 @@
                             <i class="fas fa-info-circle"></i> Выбрано локаций: {{ locations_selected|length }}
                         </div>
                         {% endif %}
+
                         {% if not alert_thresholds %}
                         <div class="alert alert-warning alert-theme">
                             <i class="fas fa-exclamation-triangle"></i> У вас не настроены пороги алертов для отслеживания. Пожалуйста, настройте алерты в настройках профиля, чтобы отслеживать количество ассетов.
                         </div>
-                        {% elif assets %}
-                        {% if not location_data %}
-                        <div class="alert alert-warning alert-theme">
-                            <i class="fas fa-exclamation-triangle"></i> В выбранных локациях нет ассетов с текущим фильтром алертов. Попробуйте изменить фильтр или выбрать другие локации.
-                        </div>
-                        {% else %}
+                        {% endif %}
+
+                        {% if location_data %}
                         <div class="table-responsive table-responsive-theme">
-                            {% regroup assets by character.name as character_assets %}
-                            {% for character_group in character_assets %}
+                            {% for character_name, locations in location_data.items %}
                             <div class="asset-character-section mb-4">
                                 <div class="card card-theme asset-character-card">
-                                    <div class="card-header card-header-theme asset-character-header" data-bs-toggle="collapse" data-bs-target="#character-{{ character_group.grouper|slugify }}" style="cursor: pointer;">
+                                    <div class="card-header card-header-theme asset-character-header" data-bs-toggle="collapse" data-bs-target="#character-{{ character_name|slugify }}" style="cursor: pointer;">
                                         <h5 class="mb-0">
-                                            <i class="fas fa-user-circle"></i> {{ character_group.grouper|default:"Неизвестно" }}
-                                            <span class="badge bg-secondary float-end">{{ character_group.list|length }} активов</span>
+                                            <i class="fas fa-user-circle"></i> {{ character_name|default:"Неизвестно" }}
+                                            <span class="badge bg-secondary float-end">{{ locations|length }} локаций</span>
                                         </h5>
                                     </div>
-                                    <div id="character-{{ character_group.grouper|slugify }}" class="collapse"> <!---Если надо сделать открытыми карточки по умолчанию изменить class="collapse show"--->
+                                    <div id="character-{{ character_name|slugify }}" class="collapse show">
                                         <div class="card-body card-body-theme asset-character-body">
-                                            {% regroup character_group.list by location.location_name as location_assets %}
-                                            {% for location_group in location_assets %}
-                                            {% with location_id=location_group.list.0.location.location_id %}
-                                            {% with location_name=location_group.grouper %}
-                                            <div class="asset-location-section mb-3">
-                                                <div class="card card-theme asset-location-card">
-                                                    <div class="card-header card-header-theme asset-location-header" data-bs-toggle="collapse" data-bs-target="#location-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}" style="cursor: pointer;">
-                                                        <h5 class="mb-0">
-                                                            <i class="fas fa-map-marker-alt"></i> {{ location_name|default:"Неизвестно" }}
-                                                            <span class="badge bg-secondary float-end">{{ location_group.list|length }} предметов</span>
-                                                        </h5>
-                                                    </div>
-                                                    <div id="location-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}" class="collapse">
-                                                        <div class="card-body card-body-theme asset-location-body">
-                                                            {% if location_data %}
-                                                            {# Используем аккордеон для группировки ассетов #}
-                                                            {% with location_data|get_item:location_id as loc_hierarchy %}
-                                                            {% if loc_hierarchy %}
+                                            {# Аккордеон для локаций внутри персонажа #}
+                                            <div class="accordion accordion-theme" id="locationAccordion-{{ character_name|slugify }}">
+                                                {% for location_name, loc_hierarchy in locations.items %}
+                                                <div class="accordion-item accordion-item-theme">
+                                                    <h2 class="accordion-header" id="heading-location-{{ character_name|slugify }}-{{ location_name|slugify }}">
+                                                        <button class="accordion-button accordion-button-theme" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-location-{{ character_name|slugify }}-{{ location_name|slugify }}" aria-expanded="false" aria-controls="collapse-location-{{ character_name|slugify }}-{{ location_name|slugify }}">
+                                                            <i class="fas fa-map-marker-alt"></i><span class="ms-2"></span> {{ location_name }}
+                                                            {% if loc_hierarchy.open_assets %}
+                                                            <span class="badge bg-success ms-2">{{ loc_hierarchy.open_assets|length }} открытых</span>
+                                                            {% endif %}
                                                             {% if loc_hierarchy.container_groups %}
-                                                            {# Есть контейнеры: показываем открытые ассеты и аккордеон контейнеров #}
+                                                            <span class="badge bg-info ms-2">{{ loc_hierarchy.container_groups|length }} контейнеров</span>
+                                                            {% endif %}
+                                                        </button>
+                                                    </h2>
+                                                    <div id="collapse-location-{{ character_name|slugify }}-{{ location_name|slugify }}" class="accordion-collapse collapse" aria-labelledby="heading-location-{{ character_name|slugify }}-{{ location_name|slugify }}" data-bs-parent="#locationAccordion-{{ character_name|slugify }}">
+                                                        <div class="accordion-body accordion-body-theme">
                                                             {# Ассеты на открытом пространстве #}
                                                             {% if loc_hierarchy.open_assets %}
                                                             <div class="mb-3">
-                                                                <h6 class="text-success"><i class="fas fa-globe"></i> Открытый склад ({{ location_name }})</h6>
+                                                                <h6 class="text-success"><i class="fas fa-globe"></i> Открытый склад</h6>
                                                                 <div class="table-responsive">
                                                                     <table class="table table-striped table-hover table-theme">
                                                                         <thead class="table-light thead-theme">
@@ -263,17 +229,18 @@
                                                             </div>
                                                             {% endif %}
 
-                                                            {# Аккордеон для контейнеров #}
-                                                            <div class="accordion accordion-theme" id="containerAccordion-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}">
+                                                            {# Аккордеон для контейнеров внутри локации #}
+                                                            {% if loc_hierarchy.container_groups %}
+                                                            <div class="accordion accordion-theme mt-3" id="containerAccordion-{{ character_name|slugify }}-{{ location_name|slugify }}">
                                                                 {% for item_id, container_data in loc_hierarchy.container_groups.items %}
                                                                 <div class="accordion-item accordion-item-theme">
-                                                                    <h2 class="accordion-header" id="heading-{{ item_id }}">
-                                                                        <button class="accordion-button accordion-button-theme" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ item_id }}" aria-expanded="false" aria-controls="collapse-{{ item_id }}">
+                                                                    <h2 class="accordion-header" id="heading-container-{{ character_name|slugify }}-{{ location_name|slugify }}-{{ item_id }}">
+                                                                        <button class="accordion-button accordion-button-theme" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-container-{{ character_name|slugify }}-{{ location_name|slugify }}-{{ item_id }}" aria-expanded="false" aria-controls="collapse-container-{{ character_name|slugify }}-{{ location_name|slugify }}-{{ item_id }}">
                                                                             <i class="fas fa-cube"></i><span class="ms-2"></span> {{ container_data.name }}
                                                                             <span class="badge bg-secondary ms-2">{{ container_data.assets|length }} предметов</span>
                                                                         </button>
                                                                     </h2>
-                                                                    <div id="collapse-{{ item_id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ item_id }}" data-bs-parent="#containerAccordion-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}">
+                                                                    <div id="collapse-container-{{ character_name|slugify }}-{{ location_name|slugify }}-{{ item_id }}" class="accordion-collapse collapse" aria-labelledby="heading-container-{{ character_name|slugify }}-{{ location_name|slugify }}-{{ item_id }}" data-bs-parent="#containerAccordion-{{ character_name|slugify }}-{{ location_name|slugify }}">
                                                                         <div class="accordion-body accordion-body-theme">
                                                                             <div class="table-responsive">
                                                                                 <table class="table table-striped table-hover table-theme">
@@ -312,102 +279,28 @@
                                                                 </div>
                                                                 {% endfor %}
                                                             </div>
-                                                            {% else %}
-                                                            {# Нет иерархии или пустая - показываем все ассеты в одной таблице #}
-                                                            <div class="table-responsive">
-                                                                <table class="table table-striped table-hover table-theme">
-                                                                    <thead class="table-light thead-theme">
-                                                                        <tr>
-                                                                            <th>Название предмета</th>
-                                                                            <th>Категория</th>
-                                                                            <th>Группа</th>
-                                                                            <th>Количество</th>
-                                                                            <th>Порог</th>
-                                                                            <th>Алерт</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        {% for asset in location_group.list %}
-                                                                        {% if asset.alert_level == 'critical' %}
-                                                                        <tr class="alert-critical">
-                                                                        {% elif asset.alert_level == 'warning' %}
-                                                                        <tr class="alert-warning">
-                                                                        {% else %}
-                                                                        <tr>
-                                                                        {% endif %}
-                                                                            <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
-                                                                            <td>{{ asset.type_id.category_name|default:"-" }}</td>
-                                                                            <td>{{ asset.type_id.group_name|default:"-" }}</td>
-                                                                            <td>{{ asset.quantity }}</td>
-                                                                            <td>{% if alert_thresholds|get_item:asset.type_id.type_id %}<span>{{ alert_thresholds|get_item:asset.type_id.type_id }}</span>{% else %}-{% endif %}</td>
-                                                                            <td>{% if asset.alert_level == 'critical' %}<span class="badge bg-danger"><i class="fas fa-exclamation-triangle"></i> Критический</span>{% elif asset.alert_level == 'warning' %}<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-circle"></i> Предупреждение</span>{% else %}-{% endif %}</td>
-                                                                        </tr>
-                                                                        {% endfor %}
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
                                                             {% endif %}
-                                                            {% else %}
-                                                            {# Если иерархия не найдена, используем старый метод #}
-                                                            <div class="table-responsive">
-                                                                <table class="table table-striped table-hover table-theme">
-                                                                    <thead class="table-light thead-theme">
-                                                                        <tr>
-                                                                            <th>Название предмета</th>
-                                                                            <th>Категория</th>
-                                                                            <th>Группа</th>
-                                                                            <th>Количество</th>
-                                                                            <th>Порог</th>
-                                                                            <th>Алерт</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        {% for asset in location_group.list %}
-                                                                        {% if asset.alert_level == 'critical' %}
-                                                                        <tr class="alert-critical">
-                                                                        {% elif asset.alert_level == 'warning' %}
-                                                                        <tr class="alert-warning">
-                                                                        {% else %}
-                                                                        <tr>
-                                                                        {% endif %}
-                                                                            <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
-                                                                            <td>{{ asset.type_id.category_name|default:"-" }}</td>
-                                                                            <td>{{ asset.type_id.group_name|default:"-" }}</td>
-                                                                            <td>{{ asset.quantity }}</td>
-                                                                            <td>{% if alert_thresholds|get_item:asset.type_id.type_id %}<span>{{ alert_thresholds|get_item:asset.type_id.type_id }}</span>{% else %}-{% endif %}</td>
-                                                                            <td>{% if asset.alert_level == 'critical' %}<span class="badge bg-danger"><i class="fas fa-exclamation-triangle"></i> Критический</span>{% elif asset.alert_level == 'warning' %}<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-circle"></i> Предупреждение</span>{% else %}-{% endif %}</td>
-                                                                        </tr>
-                                                                        {% endfor %}
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
-                                                            {% endif %}
-                                                            {% endwith %}
-                                                            {% endif %}
-                                            {% endwith %}
                                                         </div>
                                                     </div>
                                                 </div>
+                                                {% endfor %}
                                             </div>
-                                            {% endwith %}
-                                            {% endfor %}
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             {% endfor %}
                         </div>
-                        {% endif %}
                         {% else %}
                         <div class="alert alert-warning alert-theme">
                             <i class="fas fa-exclamation-triangle"></i> Ассеты не загружены. Нажмите "Обновить ассеты" для получения данных.
                         </div>
                         {% endif %}
+
                     </div>
                 </div>
             </div>
         </div>
-        {% endif %}
     </div>
 
     {% block page_styles %}
@@ -1117,7 +1010,7 @@
             });
 
             // Фокус на таблицу при загрузке
-            {% if assets %}
+            {% if location_data %}
             setTimeout(function() {
                 $('html, body').animate({
                     scrollTop: $('.asset-location-section:first').offset().top - 50
