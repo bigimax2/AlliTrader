@@ -19,7 +19,7 @@ from observer_assets_single.models import AlertThreshold, Asset, EveLocation, Ev
 
 
 
-def build_location_hierarchy(assets, character, alert_thresholds):
+def build_location_hierarchy(assets, character, alert_thresholds, alert_level_filter=None):
     """
     Построение иерархии ассетов внутри локации для отображения с аккордеоном.
 
@@ -30,6 +30,7 @@ def build_location_hierarchy(assets, character, alert_thresholds):
         assets: queryset ассетов для одной локации
         character: Объект EveCharacter
         alert_thresholds: словарь {type_id: min_quantity} для алертов
+        alert_level_filter: фильтр по уровню алерта ('critical', 'warning', None)
 
     Returns:
         Словарь с двумя ключами:
@@ -43,30 +44,28 @@ def build_location_hierarchy(assets, character, alert_thresholds):
 
     # Получаем item_id всех ассетов в текущей локации
     location_item_ids = [asset.item_id for asset in assets]
-
-    # Собираем все ID контейнеров/кораблей, в которых могут быть ассеты
-    # Это включает как ассеты на открытом пространстве, так и все вложенные контейнеры
-    all_container_ids = set()
-
-    # Сначала находим все контейнеры (is_singleton=True) среди переданных ассетов
+    
+    # Находим ID всех контейнеров/кораблей в текущих ассетах (это ID контейнеров на верхнем уровне)
+    top_level_container_ids = set()
     for asset in assets:
         if asset.is_singleton:
-            all_container_ids.add(asset.item_id)
+            top_level_container_ids.add(asset.item_id)
 
-    # Находим все ассеты, которые находятся внутри любых контейнеров
-    # Ищем по location.location_id (контейнеры на верхнем уровне) и parent_item_id (вложенные ассеты)
+    # Находим все ассеты, которые находятся внутри контейнеров
+    # Ассет внутри контейнера имеет location.location_id, равный item_id контейнера
     container_contents = Asset.objects.filter(
         character=character,
-        location__location_id__in=location_item_ids
+        location__location_id__in=top_level_container_ids
     ).select_related('location', 'type_id').distinct()
 
-    # Добавляем вложенные контейнеры в список
+    # Находим вложенные контейнеры и их содержимое рекурсивно
+    processed_container_ids = set(top_level_container_ids)
     nested_container_ids = set()
     for content in container_contents:
         if content.is_singleton:
             nested_container_ids.add(content.item_id)
 
-    # Если есть вложенные контейнеры, ищем ассеты внутри них рекурсивно
+    # Если есть вложенные контейнеры, ищем ассеты внутри них
     while nested_container_ids:
         nested_contents = Asset.objects.filter(
             character=character,
@@ -75,21 +74,24 @@ def build_location_hierarchy(assets, character, alert_thresholds):
 
         # Добавляем найденные ассеты в container_contents
         existing_ids = {c.item_id for c in container_contents}
+        new_nested_ids = set()
         for content in nested_contents:
             if content.item_id not in existing_ids:
                 container_contents = list(container_contents) + [content]
                 if content.is_singleton:
-                    nested_container_ids.add(content.item_id)
-
+                    new_nested_ids.add(content.item_id)
+        
         # Обновляем список для следующей итерации
-        nested_container_ids = {c.item_id for c in nested_contents if c.is_singleton and c.item_id not in existing_ids}
+        nested_container_ids = new_nested_ids
+        processed_container_ids.update(nested_container_ids)
 
     # Группируем ассеты
     open_assets = []
     container_groups = {}  # {item_id: {'name': ..., 'assets': [...]}}
 
-    # Сначала собираем ассеты, которые находятся внутри контейнеров
-    container_assets_map = {}  # {item_id: [assets inside]}
+    # Собираем ассеты, которые находятся внутри контейнеров
+    # Группируем по location.location_id (ID контейнера)
+    container_assets_map = {}  # {location_id: [assets inside]}
     for content in container_contents:
         loc_id = content.location.location_id
         if loc_id not in container_assets_map:
@@ -97,9 +99,7 @@ def build_location_hierarchy(assets, character, alert_thresholds):
         container_assets_map[loc_id].append(content)
         logger.info(
             f"Container content: item_id={content.item_id}, type_id={content.type_id.type_id}, location.location_id={loc_id}, is_singleton={content.is_singleton}")
-
-    # Копируем атрибут alert_level из исходных ассетов в ассеты из container_contents
-    # Это нужно, потому что container_contents - это новые объекты из БД без alert_level
+    
     logger.info(f"Kopirovka alert_level: container_assets_map keys={list(container_assets_map.keys())}")
 
     # Для каждого ассета внутри контейнера вычисляем alert_level заново по его количеству

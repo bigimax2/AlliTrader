@@ -43,13 +43,7 @@ class Asset(models.Model):
     
     location_flag = models.CharField(max_length=50, null=True, blank=True)
     
-    # Ссылка на родительский контейнер (если актив внутри контейнера)
-    parent_item_id = models.PositiveBigIntegerField(
-        null=True, 
-        blank=True,
-        help_text="ID контейнера, в котором находится актив (если есть)"
-    )
-    
+
     # Связь с локацией для получения имени
     location = models.ForeignKey(
         EveLocation,
