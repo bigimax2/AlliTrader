@@ -176,6 +176,8 @@
                                             {# Аккордеон для локаций внутри персонажа #}
                                             <div class="accordion accordion-theme" id="locationAccordion-{{ character_name|slugify }}">
                                                 {% for location_name, loc_hierarchy in locations.items %}
+                                                {# Пропускаем локации, где нет ни открытых ассетов, ни контейнеров #}
+                                                {% if loc_hierarchy.open_assets or loc_hierarchy.container_groups %}
                                                 <div class="accordion-item accordion-item-theme">
                                                     <h2 class="accordion-header" id="heading-location-{{ character_name|slugify }}-{{ location_name|slugify }}">
                                                         <button class="accordion-button accordion-button-theme" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-location-{{ character_name|slugify }}-{{ location_name|slugify }}" aria-expanded="false" aria-controls="collapse-location-{{ character_name|slugify }}-{{ location_name|slugify }}">
@@ -283,6 +285,7 @@
                                                         </div>
                                                     </div>
                                                 </div>
+                                                {% endif %}
                                                 {% endfor %}
                                             </div>
                                         </div>

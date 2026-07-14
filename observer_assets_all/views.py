@@ -42,6 +42,27 @@ def build_location_hierarchy(assets, character, alert_thresholds, alert_level_fi
     if not assets:
         return {'open_assets': [], 'container_groups': {}}
 
+    # Сначала вычисляем alert_level для всех ассетов (открытых и внутри контейнеров)
+    for asset in assets:
+        type_id = asset.type_id.type_id
+        qty = int(asset.quantity)
+        threshold = alert_thresholds.get(type_id)
+        if threshold is not None:
+            thresh = int(threshold)
+            critical_threshold = thresh * 0.25
+            warning_threshold = thresh * 0.5
+
+            if qty <= critical_threshold:
+                asset.alert_level = 'critical'
+            elif qty <= warning_threshold:
+                asset.alert_level = 'warning'
+            elif qty == thresh:
+                asset.alert_level = 'warning'
+            else:
+                asset.alert_level = None
+        else:
+            asset.alert_level = None
+
     # Получаем item_id всех ассетов в текущей локации
     location_item_ids = [asset.item_id for asset in assets]
     
@@ -85,6 +106,27 @@ def build_location_hierarchy(assets, character, alert_thresholds, alert_level_fi
         nested_container_ids = new_nested_ids
         processed_container_ids.update(nested_container_ids)
 
+    # Вычисляем alert_level для контейнеров (которые загружены из БД)
+    for content in container_contents:
+        type_id = content.type_id.type_id
+        qty = int(content.quantity)
+        threshold = alert_thresholds.get(type_id)
+        if threshold is not None:
+            thresh = int(threshold)
+            critical_threshold = thresh * 0.25
+            warning_threshold = thresh * 0.5
+
+            if qty <= critical_threshold:
+                content.alert_level = 'critical'
+            elif qty <= warning_threshold:
+                content.alert_level = 'warning'
+            elif qty == thresh:
+                content.alert_level = 'warning'
+            else:
+                content.alert_level = None
+        else:
+            content.alert_level = None
+
     # Группируем ассеты
     open_assets = []
     container_groups = {}  # {item_id: {'name': ..., 'assets': [...]}}
@@ -101,40 +143,6 @@ def build_location_hierarchy(assets, character, alert_thresholds, alert_level_fi
             f"Container content: item_id={content.item_id}, type_id={content.type_id.type_id}, location.location_id={loc_id}, is_singleton={content.is_singleton}")
     
     logger.info(f"Kopirovka alert_level: container_assets_map keys={list(container_assets_map.keys())}")
-
-    # Для каждого ассета внутри контейнера вычисляем alert_level заново по его количеству
-    for item_id, assets_list in container_assets_map.items():
-        for asset in assets_list:
-            type_id = asset.type_id.type_id
-            qty = int(asset.quantity)
-
-            # Ищем порог для этого type_id
-            threshold = alert_thresholds.get(type_id)
-            if threshold is not None:
-                thresh = int(threshold)
-                critical_threshold = thresh * 0.25
-                warning_threshold = thresh * 0.5
-
-                if qty <= critical_threshold:
-                    asset.alert_level = 'critical'
-                    logger.info(
-                        f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=critical")
-                elif qty <= warning_threshold:
-                    asset.alert_level = 'warning'
-                    logger.info(
-                        f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=warning")
-                elif qty == thresh:
-                    asset.alert_level = 'warning'
-                    logger.info(
-                        f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=warning (equal to threshold)")
-                else:
-                    asset.alert_level = None
-                    logger.info(
-                        f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=None")
-            else:
-                asset.alert_level = None
-                logger.info(
-                    f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, no threshold found")
 
     # Затем обрабатываем исходные ассеты
     for asset in assets:
@@ -162,6 +170,22 @@ def build_location_hierarchy(assets, character, alert_thresholds, alert_level_fi
             open_assets.append(asset)
             logger.info(
                 f"Open asset: item_id={item_id}, type_id={asset.type_id.type_id}, category_name={category_name}, alert_level={getattr(asset, 'alert_level', 'NOT SET')}")
+
+    # Фильтруем результаты по alert_level_filter, если задан
+    if alert_level_filter:
+        open_assets = [asset for asset in open_assets if getattr(asset, 'alert_level', None) == alert_level_filter]
+        
+        # Фильтруем контейнеры: оставляем только те, у которых есть ассеты с нужным уровнем алерта
+        filtered_container_groups = {}
+        for item_id, container_data in container_groups.items():
+            filtered_assets = [asset for asset in container_data['assets'] 
+                              if getattr(asset, 'alert_level', None) == alert_level_filter]
+            if filtered_assets:
+                filtered_container_groups[item_id] = {
+                    **container_data,
+                    'assets': filtered_assets
+                }
+        container_groups = filtered_container_groups
 
     return {'open_assets': open_assets, 'container_groups': container_groups}
 
@@ -263,37 +287,6 @@ def assets_overview(request):
 
                 assets = assets.order_by('character__name', 'location__location_id', 'type_id')
 
-                # Добавляем информацию о низком количестве
-                for asset in assets:
-                    # Используем asset.type_id.type_id, так как type_id - это ForeignKey объект
-                    threshold = alert_thresholds.get(asset.type_id.type_id)
-                    if threshold is not None:
-                        qty = int(asset.quantity)
-                        thresh = int(threshold)
-                        # critical: qty <= thresh + 15% от thresh (порог + 15%)
-                        # warning: qty <= thresh + 30% от thresh (порог + 30%)
-                        critical_threshold = thresh * 0.25
-                        warning_threshold = thresh * 0.5
-                        logger.info(f"Asset type_id={asset.type_id.type_id}, quantity={qty}, threshold={thresh}")
-                        logger.info(f"  thresholds: critical={critical_threshold}, warning={warning_threshold}")
-
-                        if qty <= critical_threshold:
-                            asset.alert_level = 'critical'
-                            logger.info(f"  -> critical (qty={qty} <= {critical_threshold})")
-                        elif qty <= warning_threshold:
-                            asset.alert_level = 'warning'
-                            logger.info(f"  -> warning (qty={qty} <= {warning_threshold})")
-                        elif qty == thresh:
-                            asset.alert_level = 'warning'
-                            logger.info(f"  -> warning (qty={qty} = {thresh})")
-                        else:
-                            asset.alert_level = None
-                            logger.info(f"  -> None (qty={qty} > {warning_threshold})")
-                    else:
-                        asset.alert_level = None
-                        logger.info(
-                            f"Asset type_id={asset.type_id.type_id}, quantity={asset.quantity}, no threshold found")
-
                 logger.info(f"Выбрано локаций: {len(locations_selected)}, ID: {location_ids}")
                 logger.info(f"Найдено ассетов: {assets.count()}")
                 logger.info(f"Порогов алертов: {len(alert_thresholds)}")
@@ -344,12 +337,7 @@ def assets_overview(request):
                         for location_obj, loc_assets in assets_by_location.items():
                             location_name = location_obj.location_name if location_obj else "Unknown Location"
                             
-                            # Фильтруем по alert_level до передачи в build_location_hierarchy
-                            if alert_level_filter:
-                                loc_assets = [asset for asset in loc_assets if getattr(asset, 'alert_level', None) == alert_level_filter]
-                                logger.info(f"Локация {location_name}: отфильтровано ассетов до построения иерархии: {len(loc_assets)}")
-                            
-                            # Пропускаем локации, где нет ассетов после фильтрации
+                            # Пропускаем локации, где нет ассетов
                             if not loc_assets:
                                 continue
                             
@@ -358,7 +346,7 @@ def assets_overview(request):
                                 location_data[character_name] = {}
                             
                             location_data[character_name][location_name] = build_location_hierarchy(loc_assets, character,
-                                                                                                         alert_thresholds)
+                                                                                                         alert_thresholds, alert_level_filter)
                             logger.info(f"Построена иерархия для персонажа {character_name}, локации {location_name}")
 
                     logger.info(f"Строено иерархий для персонажей: {len(location_data)}")
@@ -375,7 +363,7 @@ def assets_overview(request):
                                 )
                                 if open_assets_count == 0 and container_assets_count == 0:
                                     locations_to_remove.append(location_name)
-                                    logger.info(f"Удаляем локацию {location_name} у персонажа {character_name}: нет ассетов, соответствующих фильтру")
+                                    logger.info(f"Удаляем локацию {location_name} у персонажа {character_name}: нет ассетов (open_assets={open_assets_count}, container_assets={container_assets_count})")
                             
                             # Удаляем пустые локации из словаря персонажа
                             for location_name in locations_to_remove:
@@ -394,8 +382,8 @@ def assets_overview(request):
                         
                         # Если все персонажи были удалены, показываем предупреждение
                         if not location_data:
-                            messages.warning(request, 'В выбранных локациях нет ассетов с текущим фильтром алертов. Попробуйте изменить фильтр или выбрать другие локации.')
-                            logger.info("Все персонажи были удалены - алертов не найдено")
+                            messages.warning(request, 'В выбранных локациях нет ассетов с текущим фильтром. Попробуйте изменить фильтр или выбрать другие локации.')
+                            logger.info("Все персонажи были удалены - ассетов не найдено")
 
                 # Фильтруем зафиченные шипы из container_groups, если не выбрано показывать
                 show_chized_ships = form.cleaned_data.get('show_chized_ships', False)
