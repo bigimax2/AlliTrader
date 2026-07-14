@@ -9,5 +9,6 @@ urlpatterns = [
     path('get_token_assets/', views.get_token_assets, name='get_token_assets'),
     path('alert_settings/', views.alert_settings, name='alert_settings'),
     path('delete_threshold/', views.delete_threshold, name='delete_threshold'),
+    path('edit_threshold/', views.edit_threshold, name='edit_threshold'),
 
 ]

@@ -236,9 +236,14 @@ class AlertThresholdForm(forms.ModelForm):
         }
     
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         # Заполняем список предметов
         self.fields['type_id'].choices = [(item.type_id, item.type_name) for item in EveItemType.objects.all().order_by('type_name')]
+        
+        # Если форма используется для редактирования, скрываем поле type_id
+        if self.instance and self.instance.pk:
+            self.fields['type_id'].widget = forms.HiddenInput()
     
     def clean_type_id(self):
         """Валидация выбора предмета"""

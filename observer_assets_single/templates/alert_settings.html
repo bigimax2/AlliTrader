@@ -32,7 +32,7 @@
                                     </label>
                                     {{ form.type_id }}
                                     <small class="form-text text-muted">
-                                        <i class="fas fa-info-circle"></i> Выберите предмет из списка
+                                        <i class="fas fa-info-circle"></i> Выберите предмет из списка{% if existing_type_ids %} (при повторном выборе порог будет обновлен){% endif %}
                                     </small>
                                 </div>
                                 <div class="mb-3">
@@ -70,8 +70,11 @@
                                             <td>{{ threshold.type_name }}</td>
                                             <td>{{ threshold.group_name|default:"-" }}</td>
                                             <td>{{ threshold.category_name|default:"-" }}</td>
-                                            <td>{{ threshold.min_quantity }}</td>
+                                            <td id="quantity-{{ threshold.id }}">{{ threshold.min_quantity }}</td>
                                             <td>
+                                                <button type="button" class="btn btn-sm btn-primary btn-theme edit-threshold" data-threshold-id="{{ threshold.id }}" data-threshold-quantity="{{ threshold.min_quantity }}" data-threshold-name="{{ threshold.type_name|escapejs }}" data-bs-toggle="modal" data-bs-target="#editModal">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
                                                 <form method="post" action="{% url 'observer_assets_single:delete_threshold' %}" style="display: inline;" onsubmit="return confirm('Вы уверены, что хотите удалить этот порог?');">
                                                     {% csrf_token %}
                                                     <input type="hidden" name="threshold_id" value="{{ threshold.id }}">
@@ -93,6 +96,46 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно для редактирования порога -->
+    <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editModalLabel">
+                        <i class="fas fa-edit"></i> Редактировать порог
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <form id="editForm" method="post" action="{% url 'observer_assets_single:edit_threshold' %}">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <input type="hidden" name="threshold_id" id="edit_threshold_id">
+                        <div class="mb-3">
+                            <label for="edit_min_quantity" class="form-label form-label-theme">
+                                <i class="fas fa-cube"></i> Предмет
+                            </label>
+                            <input type="text" class="form-control" id="edit_type_name" disabled>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_min_quantity" class="form-label form-label-theme">
+                                Минимальное количество
+                            </label>
+                            <input type="number" class="form-control" id="edit_min_quantity" name="min_quantity" min="1" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-theme" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Отмена
+                        </button>
+                        <button type="submit" class="btn btn-primary btn-theme">
+                            <i class="fas fa-save"></i> Сохранить
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -140,9 +183,13 @@
     color: #4dabf7;
 }
 </style>
+{% endblock content %}
 
+{% block page_scripts %}
 <script>
-$(document).ready(function() {
+jQuery(document).ready(function($) {
+    console.log('Script loaded');
+    
     // Обработка формы добавления порога через AJAX
     $('#alertForm').on('submit', function(e) {
         e.preventDefault();
@@ -161,6 +208,46 @@ $(document).ready(function() {
             }
         });
     });
+    
+    // Обработка открытия модального окна редактирования
+    $('#editModal').on('show.bs.modal', function(event) {
+        console.log('Modal show event triggered');
+        var button = $(event.relatedTarget);
+        console.log('Button:', button);
+        console.log('Button data:', button.data());
+        
+        var thresholdId = button.data('threshold-id');
+        var thresholdQuantity = button.data('threshold-quantity');
+        var typeName = button.data('threshold-name');
+        
+        console.log('Threshold ID:', thresholdId);
+        console.log('Threshold Quantity:', thresholdQuantity);
+        console.log('Type Name:', typeName);
+        
+        var modal = $(this);
+        modal.find('#edit_threshold_id').val(thresholdId);
+        modal.find('#edit_type_name').val(typeName);
+        modal.find('#edit_min_quantity').val(thresholdQuantity);
+    });
+    
+    // Обработка формы редактирования через AJAX
+    $('#editForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        $.ajax({
+            type: 'POST',
+            url: '{% url "observer_assets_single:edit_threshold" %}',
+            data: $(this).serialize(),
+            success: function(response) {
+                // Обновляем страницу после успешного редактирования
+                location.reload();
+            },
+            error: function(xhr, status, error) {
+                // Показываем ошибки
+                alert('Ошибка при редактировании порога');
+            }
+        });
+    });
 });
 </script>
-{% endblock content %}
+{% endblock page_scripts %}

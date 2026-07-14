@@ -431,17 +431,52 @@ def alert_settings(request):
     
     # Обработка формы
     if request.method == 'POST':
-        form = AlertThresholdForm(request.POST)
-        if form.is_valid():
-            threshold = form.save(commit=False)
-            threshold.user_id = user_id
-            logger.info(f"Saving threshold: user_id={user_id}, type_id={threshold.type_id}, min_quantity={threshold.min_quantity}")
-            threshold.save()
-            messages.success(request, 'Порог алерта успешно добавлен!')
-            return redirect('observer_assets_single:alert_settings')
+        # Проверяем, редактируем ли мы существующий порог
+        threshold_id = request.POST.get('threshold_id')
+        
+        if threshold_id:
+            # Редактирование существующего порога
+            try:
+                threshold = AlertThreshold.objects.get(id=threshold_id, user_id=user_id)
+                form = AlertThresholdForm(request.POST, instance=threshold, user=request.user)
+                if form.is_valid():
+                    form.save()
+                    messages.success(request, 'Порог алерта успешно обновлен!')
+                    return redirect('observer_assets_single:alert_settings')
+                else:
+                    messages.error(request, 'Ошибка при обновлении порога. Проверьте правильность данных.')
+            except AlertThreshold.DoesNotExist:
+                messages.error(request, 'Порог алерта не найден')
+                return redirect('observer_assets_single:alert_settings')
         else:
-            logger.error(f"Form errors: {form.errors}")
-            messages.error(request, 'Ошибка при добавлении порога алерта. Проверьте правильность данных.')
+            # Создание нового порога или обновление существующего
+            form = AlertThresholdForm(request.POST, user=request.user)
+            if form.is_valid():
+                type_id_obj = form.cleaned_data.get('type_id')
+                min_quantity = form.cleaned_data.get('min_quantity')
+                
+                # Проверяем, существует ли уже алерт для этого предмета
+                existing_threshold = AlertThreshold.objects.filter(
+                    user_id=user_id,
+                    type_id=type_id_obj
+                ).first()
+                
+                if existing_threshold:
+                    # Если алерт уже существует - обновляем его
+                    existing_threshold.min_quantity = min_quantity
+                    existing_threshold.save()
+                    messages.success(request, f'Порог алерта для "{type_id_obj.type_name}" успешно обновлен на {min_quantity}!')
+                else:
+                    # Создаем новый алерт
+                    threshold = form.save(commit=False)
+                    threshold.user_id = user_id
+                    logger.info(f"Saving threshold: user_id={user_id}, type_id={threshold.type_id}, min_quantity={threshold.min_quantity}")
+                    threshold.save()
+                    messages.success(request, 'Порог алерта успешно добавлен!')
+                return redirect('observer_assets_single:alert_settings')
+            else:
+                logger.error(f"Form errors: {form.errors}")
+                messages.error(request, 'Ошибка при добавлении порога алерта. Проверьте правильность данных.')
     else:
         form = AlertThresholdForm()
     
@@ -482,6 +517,29 @@ def delete_threshold(request):
         except Exception as e:
             messages.error(request, f'Ошибка при удалении порога алерта: {str(e)}')
             return redirect('observer_assets_single:alert_settings')
+    
+    messages.error(request, 'Неверный запрос')
+    return redirect('observer_assets_single:alert_settings')
+
+
+def edit_threshold(request):
+    """Редактирование порога алерта"""
+    if request.method == 'POST' and request.user.is_authenticated:
+        user_id = request.user.id
+        threshold_id = request.POST.get('threshold_id')
+        min_quantity = request.POST.get('min_quantity')
+        
+        try:
+            threshold = AlertThreshold.objects.get(id=threshold_id, user_id=user_id)
+            threshold.min_quantity = min_quantity
+            threshold.save()
+            messages.success(request, 'Порог алерта успешно обновлен!')
+        except AlertThreshold.DoesNotExist:
+            messages.error(request, 'Порог алерта не найден')
+        except Exception as e:
+            messages.error(request, f'Ошибка при обновлении порога: {str(e)}')
+        
+        return redirect('observer_assets_single:alert_settings')
     
     messages.error(request, 'Неверный запрос')
     return redirect('observer_assets_single:alert_settings')
