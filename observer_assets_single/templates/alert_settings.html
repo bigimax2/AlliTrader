@@ -164,31 +164,34 @@
         </div>
     </div>
 </div>
-
-<style>
-[data-theme="light"] .alert-theme {
-    background-color: #d1ecf1;
-    border-color: #bee5eb;
-    color: #0c5460;
-}
-[data-theme="dark"] .alert-theme {
-    background-color: var(--card-bg);
-    border-color: rgba(255, 255, 255, 0.125);
-    color: var(--text-color);
-}
-[data-theme="light"] .alert-theme a {
-    color: #0a58ca;
-}
-[data-theme="dark"] .alert-theme a {
-    color: #4dabf7;
-}
-</style>
 {% endblock content %}
+
+
+
 
 {% block page_scripts %}
 <script>
-jQuery(document).ready(function($) {
+$(document).ready(function($) {
     console.log('Script loaded');
+    console.log('Select2 elements:', $('.select2-search'));
+    console.log('Select2 version:', $.fn.select2 ? 'loaded' : 'not loaded');
+    
+    // Инициализация Select2 для поиска предметов
+    if (typeof $.fn.select2 !== 'undefined') {
+        $('.select2-search').select2({
+            placeholder: 'Выберите предмет...',
+            allowClear: true,
+            width: '100%',
+            language: {
+                noResults: function() {
+                    return 'Ничего не найдено';
+                }
+            }
+        });
+        console.log('Select2 initialized successfully');
+    } else {
+        console.error('Select2 is not loaded!');
+    }
     
     // Обработка формы добавления порога через AJAX
     $('#alertForm').on('submit', function(e) {

@@ -221,7 +221,7 @@ class AlertThresholdForm(forms.ModelForm):
     type_id = forms.ChoiceField(
         label='Предмет',
         required=True,
-        widget=forms.Select(attrs={'class': 'form-select'}),
+        widget=forms.Select(attrs={'class': 'form-select select2-search', 'style': 'width: 100%;'}),
         help_text='Выберите предмет из списка'
     )
     
@@ -243,7 +243,11 @@ class AlertThresholdForm(forms.ModelForm):
         
         # Если форма используется для редактирования, скрываем поле type_id
         if self.instance and self.instance.pk:
+            # Сохраняем текущие атрибуты виджета
+            current_attrs = self.fields['type_id'].widget.attrs.copy()
             self.fields['type_id'].widget = forms.HiddenInput()
+            # Восстанавливаем атрибуты для скрытого поля (если нужно)
+            self.fields['type_id'].widget.attrs.update(current_attrs)
     
     def clean_type_id(self):
         """Валидация выбора предмета"""

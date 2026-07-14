@@ -7,6 +7,8 @@
     <link rel="icon" type="image/x-icon" href="/static/authenticated/img/black_on_trans.ico">
     <link rel="stylesheet" href="/static/authenticated/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
         :root {
             --bg-color: #f8f9fa;
@@ -258,6 +260,68 @@
             color: #adb5bd !important;
         }
         
+        /* Стили для Select2 в темной теме */
+        [data-theme="dark"] .select2-container .select2-selection {
+            background-color: #343a40;
+            border-color: #495057;
+            color: #dee2e6;
+        }
+        
+        [data-theme="dark"] .select2-container .select2-selection__rendered {
+            color: #dee2e6;
+        }
+        
+        [data-theme="dark"] .select2-container .select2-selection__placeholder {
+            color: #adb5bd;
+        }
+        
+        [data-theme="dark"] .select2-container--default .select2-selection--single .select2-selection__arrow {
+            color: #dee2e6;
+        }
+        
+        [data-theme="dark"] .select2-container .select2-search__field {
+            background-color: #343a40;
+            color: #dee2e6;
+            border-color: #495057;
+        }
+        
+        [data-theme="dark"] .select2-container .select2-results {
+            background-color: #343a40;
+        }
+        
+        [data-theme="dark"] .select2-container .select2-results__option {
+            color: #dee2e6;
+            background-color: #343a40;
+        }
+        
+        [data-theme="dark"] .select2-container .select2-results__option:hover {
+            background-color: #495057;
+            color: #fff;
+        }
+        
+        [data-theme="dark"] .select2-container .select2-results__option--highlighted {
+            background-color: #4dabf7;
+            color: #fff;
+        }
+        
+        [data-theme="dark"] .select2-container .select2-selection__clear {
+            color: #dee2e6;
+        }
+        
+        [data-theme="dark"] .select2-container .select2-selection__choice {
+            background-color: #495057;
+            border-color: #495057;
+            color: #dee2e6;
+        }
+        
+        [data-theme="dark"] .select2-container .select2-selection__choice__remove {
+            color: #dee2e6;
+        }
+        
+        [data-theme="dark"] .select2-container .select2-selection__choice__remove:hover {
+            color: #fff;
+        }
+        
         /* Кнопка переключения бокового меню для мобильных */
         .menu-toggle-mobile {
             display: none;
@@ -455,7 +519,12 @@
     <!-- Bootstrap JS -->
     <script src="/static/authenticated/bootstrap/js/bootstrap.bundle.js" crossorigin="anonymous"></script>
     
-    {% block page_scripts %}{% endblock page_scripts %}
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.full.min.js"></script>
+    
+    {% block page_scripts %}
+    {% endblock page_scripts %}
     
     <!-- Main scripts (загружаются последними, после всех page_scripts) -->
     <script src="/static/authenticated/js/scripts.js"></script>
