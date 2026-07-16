@@ -1,3 +1,10 @@
 from django.db import models
 
-# Create your models here.
+
+class PriceStatistics(models.Model):
+    class Meta:
+        verbose_name = "Price Statistics"
+        verbose_name_plural = "Price Statistics"
+
+    def __str__(self):
+        return "Price Statistics"
