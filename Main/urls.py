@@ -11,6 +11,7 @@ urlpatterns = [
         path('', include('groupmanagement.urls', namespace='groupmanagement')),
         path('', include('observer_assets_single.urls', namespace='observer_assets_single')),
         path('', include('observer_assets_all.urls', namespace='observer_assets')),
+        path('', include('traders.urls', namespace='traders')),
 ]
 
 if settings.DEBUG:

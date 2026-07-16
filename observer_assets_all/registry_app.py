@@ -7,7 +7,7 @@ import sys
 @app_registry.decorator('observer_assets_all')
 def observer_assets_config():
     # Проверяем, включено ли приложение в настройках
-    if not getattr(settings, 'ENABLE_OBSERVER_ASSETS', True):
+    if not getattr(settings, 'ENABLE_OBSERVER_ASSETS_ALL', False):
         return None
 
     # Регистрируем приложение только в основном процессе при использовании runserver
@@ -20,11 +20,5 @@ def observer_assets_config():
         'name': 'Observer_assets_all',
         'icon': '📈',
         'url': 'observer_assets_all:assets_overview',
-        'extra_links': [
-            {
-                'name': 'Ввод имен итемов',
-                'url': 'observer_assets_all:type_names_lookup',
-                'icon': '⚠️',
-            },
-        ],
+
     }

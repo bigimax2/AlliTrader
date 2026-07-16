@@ -4,10 +4,10 @@ import os
 import sys
 
 
-@app_registry.decorator('observer_assets_single')
+@app_registry.decorator('traders')
 def messenger_sidebar_config():
     # Проверяем, включено ли приложение в настройках
-    if not getattr(settings, 'ENABLE_OBSERVER_ASSETS_ALL', False):
+    if not getattr(settings, 'ENABLE_TRADERS', True):
         return None
 
     # Регистрируем приложение только в основном процессе при использовании runserver
@@ -17,15 +17,8 @@ def messenger_sidebar_config():
         return None
 
     return {
-        'name': 'Observer_assets_single',
+        'name': 'Traders',
         'icon': '📈',
-        'url': 'observer_assets_single:render_traders',
-        'extra_links': [
+        'url': 'traders:type_names_lookup',
 
-            {
-                'name': 'Алерты',
-                'url': 'observer_assets_single:alert_settings',
-                'icon': '⚠️',
-            },
-        ],
     }

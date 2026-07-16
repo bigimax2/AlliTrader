@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'channels',
     'observer_assets_single.apps.ObserverAssetsSingleConfig',
     'observer_assets_all.apps.ObserverAssetsAllConfig',
+    'traders.apps.TradersConfig',
 
 ]
 
@@ -260,5 +261,6 @@ LOGGING = {
     },
 }
 
-ENABLE_TRADER = os.getenv('ENABLE_TRADER', '').strip().lower() in ('true', '1', 'yes')
-ENABLE_OBSERVER_ASSETS = True
+ENABLE_TRADERS = os.getenv('ENABLE_TRADERS', '').strip().lower() in ('true', '1', 'yes')
+ENABLE_OBSERVER_ASSETS_SINGLE = os.getenv('ENABLE_OBSERVER_ASSETS_SINGLE', '').strip().lower() in ('true', '1', 'yes')
+ENABLE_OBSERVER_ASSETS_ALL = os.getenv('ENABLE_OBSERVER_ASSETS_ALL', '').strip().lower() in ('true', '1', 'yes')

@@ -13,12 +13,12 @@ class ObserverAssetsAllConfig(AppConfig):
         from . import registry_app  # ⬅️ Важно: импортируем, чтобы выполнить код с @decorator
         # Импорт задач — всегда нужен, т.к. @shared_task должны быть доступны
         from . import tasks  # noqa: F401
-        logger.info("Модуль observer_assets.tasks загружен")
+        logger.info("Модуль observer_assets_all.tasks загружен")
 
         # Проверка: включена ли синхронизация?
         from django.conf import settings
-        if not getattr(settings, 'ENABLE_OBSERVER_ASSETS', True):
-            logger.info("Синхронизация с observer_assets отключена (ENABLE_OBSERVER_ASSETS=False). Пропуск регистрации задач.")
+        if not getattr(settings, 'ENABLE_OBSERVER_ASSETS_ALL', False):
+            logger.info("Синхронизация с observer_assets отключена (ENABLE_OBSERVER_ASSETS_ALL=False). Пропуск регистрации задач.")
             return
 
         # Только если синхронизация включена — регистрируем расписание

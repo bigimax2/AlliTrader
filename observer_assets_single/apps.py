@@ -16,8 +16,8 @@ class ObserverAssetsSingleConfig(AppConfig):
 
         # Проверка: включена ли синхронизация?
         from django.conf import settings
-        if not getattr(settings, 'ENABLE_TRADER', False):
-            logger.info("Синхронизация с messenger отключена (ENABLE_TRADER=False). Пропуск регистрации задач.")
+        if not getattr(settings, 'ENABLE_OBSERVER_ASSETS_SINGLE', False):
+            logger.info("Синхронизация с messenger отключена (ENABLE_OBSERVER_ASSETS_SINGLE=False). Пропуск регистрации задач.")
             return
 
         # Только если синхронизация включена — регистрируем расписание
