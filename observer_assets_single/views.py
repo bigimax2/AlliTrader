@@ -668,7 +668,6 @@ def parser_assets(assets, character):
             defaults={
                 'is_singleton': item['is_singleton'],
                 'location_flag': item['location_flag'],
-                'parent_item_id': item.get('parent_item_id'),  # Сохраняем родителя
                 'location': location,  # Связь с локацией
                 'quantity': item['quantity'],
                 'type_id': item_type,  # Передаем объект EveItemType, а не ID
