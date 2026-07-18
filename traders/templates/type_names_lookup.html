@@ -147,9 +147,11 @@
                                     <th colspan="1" class="text-center border-edges border-amarr">Amarr</th>
                                     <th colspan="1" class="text-center border-edges border-hek">Hek</th>
                                     <th colspan="1" class="text-center border-edges border-dodixie">Dodixie</th>
+                                    <th colspan="1" class="text-center border-edges border-rens">Rens</th>
                                     <th colspan="1" class="text-center border-edges border-jita">Jita</th>
                                 </tr>
                                 <tr>
+                                    <th class="text-center border-edges border-sell">Min Sell</th>
                                     <th class="text-center border-edges border-sell">Min Sell</th>
                                     <th class="text-center border-edges border-sell">Min Sell</th>
                                     <th class="text-center border-edges border-sell">Min Sell</th>
@@ -158,6 +160,19 @@
                                 </tr>
                             </thead>
                             <tbody>
+
+                             {% for type in type_names_save %}
+                                 <tr>
+                                 <td class="text-center">{{ type.type_id }}</td>
+                                 <td class="text-center">{{ type.type_name }}</td>
+                                 <td class="text-center">{{ type.pricesassetsmarket.minsellamarr }}</td>
+                                 <td class="text-center">{{ type.pricesassetsmarket.minsellhek }}</td>
+                                 <td class="text-center">{{ type.pricesassetsmarket.minselldodixie }}</td>
+                                 <td class="text-center">{{ type.pricesassetsmarket.minsellrens }}</td>
+                                 <td class="text-center">{{ type.pricesassetsmarket.maxbuyjita }}</td>
+                                 </tr>
+                             {%  endfor %}
+
                                 <!-- Данные будут добавлены позже -->
                             </tbody>
                         </table>
@@ -373,6 +388,15 @@
         color: white;
     }
     [data-theme="dark"] .border-dodixie {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .border-rens {
+        background-color: #28a745;
+        color: white;
+    }
+    [data-theme="dark"] .border-rens {
         background-color: #28a745;
         color: white;
     }

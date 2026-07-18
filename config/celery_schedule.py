@@ -12,7 +12,8 @@ from authenticated.celery_schedule import CELERY_BEAT_SCHEDULE as AUTH_SCHEDULE
 from groupmanagement.celery_schedule import CELERY_BEAT_SCHEDULE as GROUPMAN_SCHEDULE
 from eveonline.celery_schedule import CELERY_BEAT_SCHEDULE as EVEONLINE_SCHEDULE
 from core.celery_schedule import CELERY_BEAT_SCHEDULE as CORE_SCHEDULE
-from observer_assets_single.celery_schedule import CELERY_BEAT_SCHEDULE as TRADER_SCHEDULE
+from observer_assets_single.celery_schedule import CELERY_BEAT_SCHEDULE as OBSERVER_ASSETS_SINGLE_SCHEDULE
+from traders.celery_schedule import CELERY_BEAT_SCHEDULE as TRADERS_SCHEDULE
 
 # Объединяем все расписания в одно с уникальными именами для каждого проекта
 CELERY_BEAT_SCHEDULE = {}
@@ -52,9 +53,16 @@ for name, task_config in CORE_SCHEDULE.items():
         "schedule": task_config["schedule"],
     }
 
-for name, task_config in TRADER_SCHEDULE.items():
+for name, task_config in OBSERVER_ASSETS_SINGLE_SCHEDULE.items():
     full_name = f"{PROJECT_NAME}.{name}"
     CELERY_BEAT_SCHEDULE[full_name] = {
         "task": task_config["task"],
         "schedule": task_config["schedule"],
     }
+
+for name, task_config in TRADERS_SCHEDULE.items():
+ full_name = f"{PROJECT_NAME}.{name}"
+ CELERY_BEAT_SCHEDULE[full_name] = {
+     "task": task_config["task"],
+     "schedule": task_config["schedule"],
+ }

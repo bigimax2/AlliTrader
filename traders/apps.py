@@ -18,7 +18,7 @@ class TradersConfig(AppConfig):
         # Проверка: включена ли синхронизация?
         from django.conf import settings
         if not getattr(settings, 'ENABLE_TRADERS', False):
-            logger.info("Синхронизация с messenger отключена (ENABLE_TRADERS=False). Пропуск регистрации задач.")
+            logger.info("Синхронизация с traders отключена (ENABLE_TRADERS=False). Пропуск регистрации задач.")
             return
 
 

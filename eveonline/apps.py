@@ -29,6 +29,7 @@ class EveonlineConfig(AppConfig):
                       "Mail",
                       "Universe",
                       "Assets",
+                      "Market",
                             ]
             )
         except (ImportError, ModuleNotFoundError) as e:
