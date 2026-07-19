@@ -8,8 +8,8 @@ from authenticated.decorators import app_access_required
 from eveonline.models import EveCharacter
 from traders import regions_systems_ids
 from traders.apps import TradersConfig
-from traders.forms import TypeNamesForm
-from traders.models import TypeSearchResult, PricesAssetsMarket
+from traders.forms import TypeNamesForm, CoefficientForm
+from traders.models import TypeSearchResult, PricesAssetsMarket, CoefficientsMarket
 
 
 @app_access_required(TradersConfig.name)
@@ -73,8 +73,25 @@ def type_names_lookup(request):
         personage = None
 
     if personage is None:
+        coefficient = 1.0
+        can_edit_coefficient = request.user.is_superuser
+        try:
+            main_character = request.user.userprofile.main_character
+            if main_character:
+                state = request.user.userprofile.state
+                can_edit_coefficient = (
+                    request.user.is_superuser or
+                    state.permissions.filter(
+                        content_type__app_label='traders',
+                        codename='change_coefficientsmarket'
+                    ).exists()
+                )
+        except Exception:
+            can_edit_coefficient = request.user.is_superuser
         return render(request, 'type_names_lookup.html', {
             'form': TypeNamesForm(),
+            'coefficient': coefficient,
+            'can_edit_coefficient': can_edit_coefficient,
             'result_data': result_data,
             'grouped_data': grouped_data,
             'accordion_data': accordion_data,
@@ -132,9 +149,39 @@ def type_names_lookup(request):
                 'typeName': type_name.type_name,
             })
 
+    # Получаем текущий коэффициент
+    try:
+        coefficient_obj = CoefficientsMarket.objects.first()
+        coefficient = coefficient_obj.coefficient if coefficient_obj else 1.0
+    except Exception:
+        coefficient = 1.0
+
+    # Проверяем права на редактирование коэффициента через основного персонажа и его State
+    can_edit_coefficient = False
+    try:
+        main_character = request.user.userprofile.main_character
+        if main_character:
+            # Проверяем права через State персонажа
+            state = request.user.userprofile.state
+            can_edit_coefficient = (
+                request.user.is_superuser or
+                state.permissions.filter(
+                    content_type__app_label='traders',
+                    codename='change_coefficientsmarket'
+                ).exists()
+            )
+    except Exception:
+        can_edit_coefficient = request.user.is_superuser
+    
+    # Если есть права, показываем форму редактирования коэффициента
+    coefficient_form = CoefficientForm(initial={'coefficient': coefficient}) if can_edit_coefficient else None
+
     return render(request, 'type_names_lookup.html', {
         'type_names_save': type_names_save,
         'form': form,
+        'coefficient': coefficient,
+        'can_edit_coefficient': can_edit_coefficient,
+        'coefficient_form': coefficient_form,
         'result_data': result_data,
         'grouped_data': grouped_data,
         'accordion_data': accordion_data,
@@ -171,6 +218,51 @@ def parse_and_save_type_search_results(type_data, personage):
             obj.character.add(pers)
         elif pers not in obj.character.all():
             obj.character.add(pers)
+
+
+@app_access_required(TradersConfig.name)
+@login_required
+@require_http_methods(["POST"])
+def save_coefficient(request):
+    """Сохранение коэффициента - доступно пользователям с правом через State их основного персонажа"""
+    # Проверяем права через State основного персонажа пользователя
+    has_permission = False
+    try:
+        main_character = request.user.userprofile.main_character
+        if main_character:
+            state = request.user.userprofile.state
+            has_permission = (
+                request.user.is_superuser or
+                state.permissions.filter(
+                    content_type__app_label='traders',
+                    codename='change_coefficientsmarket'
+                ).exists()
+            )
+    except Exception:
+        has_permission = request.user.is_superuser
+    
+    if not has_permission:
+        messages.error(request, 'У вас нет прав для изменения коэффициента')
+        return redirect('traders:type_names_lookup')
+
+    try:
+        coefficient_value = float(request.POST.get('coefficient', 1.0))
+        if coefficient_value < 0:
+            messages.error(request, 'Коэффициент не может быть отрицательным')
+            return redirect('traders:type_names_lookup')
+
+        # Создаем или обновляем коэффициент
+        obj, created = CoefficientsMarket.objects.update_or_create(
+            id=1,  # Одна запись коэффициента
+            defaults={'coefficient': coefficient_value}
+        )
+
+        messages.success(request, f'Коэффициент успешно сохранён: {coefficient_value}')
+
+    except Exception as e:
+        messages.error(request, f'Ошибка сохранения коэффициента: {e}')
+
+    return redirect('traders:type_names_lookup')
 
 def prices_parser(hub_price_results):
     """Parses price results and returns processed data only for hubs.

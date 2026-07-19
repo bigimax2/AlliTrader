@@ -77,13 +77,7 @@ def get_prices():
     dodixie_orders = tuple(dodixie_orders)
     rens_orders = tuple(rens_orders)
     
-    # Отладка
-    logger.info(f"JITA orders count: {len(jita_orders)}")
-    logger.info(f"HEK orders count: {len(hek_orders)}")
-    logger.info(f"Amarr orders count: {len(amarr_orders)}")
-    logger.info(f"Dodixie orders count: {len(dodixie_orders)}")
-    logger.info(f"Rens orders count: {len(rens_orders)}")
-    
+
     # Подготовка данных для prices_parser с хабами
     hub_price_results = {
         'price_results': price_results,

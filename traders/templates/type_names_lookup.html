@@ -131,8 +131,21 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="fas fa-chart-line"></i> Статистика цен</h5>
                         <div class="form-group mb-0">
-                            <label for="coefficient" class="form-label form-label-theme mb-0">Коэффициент:</label>
-                            <input type="number" id="coefficient" name="coefficient" value="1.0" step="0.1" class="form-control form-control-sm form-control-theme" style="width: 80px; display: inline-block;">
+                            {% if can_edit_coefficient %}
+                            <form method="post" action="{% url 'traders:save_coefficient' %}" style="display: inline;">
+                                {% csrf_token %}
+                                <div class="d-flex align-items-center gap-2">
+                                    <label class="form-label form-label-theme mb-0">Коэффициент:</label>
+                                    {{ coefficient_form.coefficient }}
+                                    <button type="submit" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-save"></i>
+                                    </button>
+                                </div>
+                            </form>
+                            {% else %}
+                            <label class="form-label form-label-theme mb-0">Коэффициент:</label>
+                            <span class="badge bg-secondary fs-6">{{ coefficient }}</span>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

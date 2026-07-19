@@ -52,4 +52,4 @@ class CoefficientsMarket(models.Model):
         verbose_name_plural = "Coefficient Market"
 
     def __str__(self):
-        return self.coefficient
+        return str(self.coefficient) if self.coefficient else '0.0'
