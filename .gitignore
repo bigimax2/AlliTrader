@@ -77,3 +77,4 @@ scripts/*.key
 /.venv/
 /observer_assets_single/migrations/
 /observer_assets_all/migrations/
+/traders/migrations/

@@ -84,6 +84,12 @@ def type_names_lookup(request):
                     state.permissions.filter(
                         content_type__app_label='traders',
                         codename='change_coefficientsmarket'
+                    ).exists() or
+                    # Проверяем права через группы пользователя
+                    request.user.groupuser.filter(
+                        nicegroup__states=state,
+                        nicegroup__states__permissions__content_type__app_label='traders',
+                        nicegroup__states__permissions__codename='change_coefficientsmarket'
                     ).exists()
                 )
         except Exception:
@@ -168,6 +174,12 @@ def type_names_lookup(request):
                 state.permissions.filter(
                     content_type__app_label='traders',
                     codename='change_coefficientsmarket'
+                ).exists() or
+                # Проверяем права через группы пользователя
+                request.user.groupuser.filter(
+                    nicegroup__states=state,
+                    nicegroup__states__permissions__content_type__app_label='traders',
+                    nicegroup__states__permissions__codename='change_coefficientsmarket'
                 ).exists()
             )
     except Exception:
@@ -236,6 +248,12 @@ def save_coefficient(request):
                 state.permissions.filter(
                     content_type__app_label='traders',
                     codename='change_coefficientsmarket'
+                ).exists() or
+                # Проверяем права через группы пользователя
+                request.user.groupuser.filter(
+                    nicegroup__states=state,
+                    nicegroup__states__permissions__content_type__app_label='traders',
+                    nicegroup__states__permissions__codename='change_coefficientsmarket'
                 ).exists()
             )
     except Exception:
