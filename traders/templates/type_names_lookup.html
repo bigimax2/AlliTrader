@@ -208,13 +208,33 @@
                                  <tr>
                                  <td class="text-center">{{ type.type_id }}</td>
                                  <td class="text-center">{{ type.type_name }}</td>
-                                 <td class="text-center">{{ type.pricesassetsmarket.minsellamarr }}</td>
-                                 <td class="text-center">{{ type.pricesassetsmarket.minsellhek }}</td>
-                                 <td class="text-center">{{ type.pricesassetsmarket.minselldodixie }}</td>
-                                 <td class="text-center">{{ type.pricesassetsmarket.minsellrens }}</td>
-                                 <td class="text-center">{{ type.pricesassetsmarket.maxbuyjita }}</td>
+                                 {# Amarr #}
+                                 {% if type.computed_prices.has_profit.amarr %}
+                                 <td class="text-center" style="background-color:#d2a25d">{{ type.computed_prices.minsellamarr|default:"-" }}</td>
+                                 {% else %}
+                                     <td class="text-center">{{ type.computed_prices.minsellamarr|default:"-" }}</td>
+                                 {% endif %}
+                                 {# Hek #}
+                                 {% if type.computed_prices.has_profit.hek %}
+                                 <td class="text-center" style="background-color:#d2a25d">{{ type.computed_prices.minsellhek|default:"-" }}</td>
+                                 {% else %}
+                                     <td class="text-center">{{ type.computed_prices.minsellhek|default:"-" }}</td>
+                                 {% endif %}
+                                 {# Dodixie #}
+                                 {% if type.computed_prices.has_profit.dodixie %}
+                                 <td class="text-center" style="background-color:#d2a25d">{{ type.computed_prices.minselldodixie|default:"-" }}</td>
+                                 {% else %}
+                                     <td class="text-center">{{ type.computed_prices.minselldodixie|default:"-" }}</td>
+                                 {% endif %}
+                                 {# Rens #}
+                                 {% if type.computed_prices.has_profit.rens %}
+                                 <td class="text-center" style="background-color:#d2a25d">{{ type.computed_prices.minsellrens|default:"-" }}</td>
+                                 {% else %}
+                                     <td class="text-center">{{ type.computed_prices.minsellrens|default:"-" }}</td>
+                                 {% endif %}
+                                 <td class="text-center">{{ type.computed_prices.maxbuyjita|default:"-" }}</td>
                                  </tr>
-                             {%  endfor %}
+                             {% endfor %}
 
                                 <!-- Данные будут добавлены позже -->
                             </tbody>

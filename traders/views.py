@@ -218,6 +218,82 @@ def type_names_lookup(request):
         coefficient = coefficient_obj.coefficient if coefficient_obj else 1.0
     except Exception:
         coefficient = 1.0
+    
+    # Подготовка данных для таблицы с вычисленным условием
+    type_names_with_condition = []
+    if type_names_save:
+        for type_item in type_names_save:
+            try:
+                prices = type_item.pricesassetsmarket
+                if prices and prices.maxbuyjita:
+                    # Берем цену Jita и умножаем на коэффициент
+                    jita_price_scaled = prices.maxbuyjita * coefficient
+                    
+                    # Вычисляем сравнение для каждой станции
+                    computed_prices = {
+                        'minsellamarr': prices.minsellamarr,
+                        'minsellhek': prices.minsellhek,
+                        'minselldodixie': prices.minselldodixie,
+                        'minsellrens': prices.minsellrens,
+                        'maxbuyjita': prices.maxbuyjita,
+                        'maxbuyjita_scaled': jita_price_scaled,
+                    }
+                    
+                    # Помечаем каждую цену, если jita_scaled > этой цены
+                    has_profit_amarr = jita_price_scaled > (prices.minsellamarr or 0)
+                    has_profit_hek = jita_price_scaled > (prices.minsellhek or 0)
+                    has_profit_dodixie = jita_price_scaled > (prices.minselldodixie or 0)
+                    has_profit_rens = jita_price_scaled > (prices.minsellrens or 0)
+                    
+                    computed_prices['has_profit'] = {
+                        'amarr': has_profit_amarr,
+                        'hek': has_profit_hek,
+                        'dodixie': has_profit_dodixie,
+                        'rens': has_profit_rens,
+                    }
+                else:
+                    computed_prices = {
+                        'minsellamarr': None,
+                        'minsellhek': None,
+                        'minselldodixie': None,
+                        'minsellrens': None,
+                        'maxbuyjita': None,
+                        'maxbuyjita_scaled': None,
+                        'has_profit': {
+                            'amarr': False,
+                            'hek': False,
+                            'dodixie': False,
+                            'rens': False,
+                        },
+                    }
+                type_names_with_condition.append({
+                    'type_id': type_item.type_id,
+                    'type_name': type_item.type_name,
+                    'pricesassetsmarket': prices,
+                    'computed_prices': computed_prices,
+                })
+            except PricesAssetsMarket.DoesNotExist:
+                type_names_with_condition.append({
+                    'type_id': type_item.type_id,
+                    'type_name': type_item.type_name,
+                    'pricesassetsmarket': None,
+                    'computed_prices': {
+                        'minsellamarr': None,
+                        'minsellhek': None,
+                        'minselldodixie': None,
+                        'minsellrens': None,
+                        'maxbuyjita': None,
+                        'maxbuyjita_scaled': None,
+                        'has_profit': {
+                            'amarr': False,
+                            'hek': False,
+                            'dodixie': False,
+                            'rens': False,
+                        },
+                    },
+                })
+    
+    type_names_save = type_names_with_condition
 
     # Проверяем права на редактирование коэффициента через основного персонажа и его State
     can_edit_coefficient = False

@@ -37,5 +37,5 @@ class CoefficientForm(forms.Form):
         label='Коэффициент',
         min_value=0,
         required=True,
-        widget=forms.NumberInput(attrs={'step': '0.1'})
+        widget=forms.NumberInput(attrs={'step': '0.01'})
     )
