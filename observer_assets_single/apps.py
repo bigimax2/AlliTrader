@@ -14,6 +14,10 @@ class ObserverAssetsSingleConfig(AppConfig):
         from . import tasks  # noqa: F401
         logger.info("Модуль observer_assets_single.tasks загружен")
 
+        # Импорт сигналов для обновления количества ассетов в TypeSearchResult
+        from . import signals  # noqa: F401
+        logger.info("Модуль observer_assets_single.signals загружен")
+
         # Проверка: включена ли синхронизация?
         from django.conf import settings
         if not getattr(settings, 'ENABLE_OBSERVER_ASSETS_SINGLE', False):

@@ -13,8 +13,20 @@ class TypeNamesForm(forms.Form):
             'rows': 10,
             'placeholder': 'Введите имена предметов, по одному на строку\nПример:\nIsis\nMaelstrom\nVindicator'
         }),
-        help_text='Введите имена предметов, по одному на строку',
-        required=True
+        help_text='Введите имена предметов, по одному на строку (необязательно при выборе "Из ассетов")',
+        required=False
+    )
+    
+    source_type = forms.ChoiceField(
+        label='Источник предметов',
+        choices=[
+            ('manual', 'Вручную (из формы)'),
+            ('assets', 'Из ассетов персонажа'),
+        ],
+        widget=forms.RadioSelect,
+        initial='manual',
+        required=False,
+        help_text='Выберите, откуда брать предметы для поиска'
     )
 
 

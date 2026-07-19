@@ -18,6 +18,13 @@ class TypeSearchResult(models.Model):
         related_name='type_search_results',
         help_text="Персонажи, добавившие этот тип в список наблюдения"
     )
+    
+    # Связь с ассетами для отслеживания количества предметов у персонажей
+    asset_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Общее количество этого предмета у всех персонажей, добавивших в список"
+    )
+    
     class Meta:
         verbose_name = "Результат поиска типа предмета"
         verbose_name_plural = "Результаты поиска типов предметов"
@@ -26,6 +33,16 @@ class TypeSearchResult(models.Model):
             models.Index(fields=['group_name']),
             models.Index(fields=['category_name']),
         ]
+    
+    def __str__(self):
+        return self.type_name or f"Type ID: {self.type_id}"
+    
+    def update_asset_count(self):
+        """Обновление количества ассетов для этого типа предмета"""
+        from observer_assets_single.models import Asset
+        count = Asset.objects.filter(type_id__type_id=self.type_id).aggregate(models.Sum('quantity'))['quantity__sum']
+        self.asset_count = count or 0
+        self.save()
 
 
 class PricesAssetsMarket(models.Model):

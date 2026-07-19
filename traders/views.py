@@ -3,15 +3,23 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
-from EVE_Online_SQLite_API import get_types_names
+from EVE_Online_SQLite_API import get_types_names, get_types_info
 from authenticated.decorators import app_access_required
 from eveonline.models import EveCharacter
 from traders import regions_systems_ids
 from traders.apps import TradersConfig
 from traders.forms import TypeNamesForm, CoefficientForm
 from traders.models import TypeSearchResult, PricesAssetsMarket, CoefficientsMarket
+from observer_assets_single.models import Asset
 
-
+# Список ID хабов для фильтрации ассетов
+HUB_LOCATION_IDS = [
+    60003760,  # Jita 4-4
+    60005686,  # Hek 8-12
+    60008494,  # Amarr 8
+    60011866,  # Dodixie 9-20
+    60004588,  # Rens 6-8
+]
 @app_access_required(TradersConfig.name)
 @login_required
 @require_http_methods(["POST"])
@@ -105,31 +113,78 @@ def type_names_lookup(request):
 
     if request.method == 'POST':
         form = TypeNamesForm(request.POST)
+        
         if form.is_valid():
+            source_type = form.cleaned_data.get('source_type', 'manual')
             type_names_input = form.cleaned_data.get('type_names', '')
+            
             # Разбиваем ввод на список имен (по одной на строку)
             type_names_list = [name.strip() for name in type_names_input.split('\n') if name.strip()]
 
-            if type_names_list:
+            if source_type == 'assets':
+                # Если источник - ассеты персонажа, берем type_ids из ассетов
+                # Фильтруем по локациям-хабам (Jita, Hek, Amarr, Dodixie, Rens)
+                
+                # Получаем type_ids из ассетов, расположенных в хабах
+                type_ids_from_assets = list(Asset.objects.filter(
+                    character__character_id=personage,
+                    location_id__in=HUB_LOCATION_IDS
+                ).values_list('type_id__type_id', flat=True).distinct())
+                
+                # Получаем информацию о этих типах из API по ID
+                if type_ids_from_assets:
+                    result_data = get_types_info(type_ids_from_assets)
+                else:
+                    result_data = {}
+            elif type_names_list:
+                # Ручной ввод из формы - только если есть ввод
                 result_data = get_types_names(type_names_list)
+            else:
+                # Нет ввода и не выбран источник ассетов
+                result_data = {}
+            
+            # Сохраняем выбор источника в session
+            request.session['source_type'] = source_type
+            
+            if result_data:
                 # Парсим и сохраняем результаты в модель
-                if result_data:
-                    parse_and_save_type_search_results(result_data, personage)
-                    # Подготовка данных для аккордеона
-                    for type_id, type_info in result_data.items():
-                        category_name = type_info.get('categoryName', 'Без категории')
-                        if category_name not in accordion_data:
-                            accordion_data[category_name] = []
-                        accordion_data[category_name].append({
-                            'type_id': type_id,
-                            'groupName': type_info.get('groupName', ''),
-                            'typeName': type_info.get('typeName', ''),
-                        })
+                parse_and_save_type_search_results(result_data, personage, source_type=source_type)
+                # Подготовка данных для аккордеона
+                for type_id, type_info in result_data.items():
+                    category_name = type_info.get('categoryName', 'Без категории')
+                    if category_name not in accordion_data:
+                        accordion_data[category_name] = []
+                    # Получаем количество ассетов для этого типа
+                    try:
+                        type_result = TypeSearchResult.objects.get(type_id=type_id)
+                        asset_count = type_result.asset_count
+                    except TypeSearchResult.DoesNotExist:
+                        asset_count = 0
+                    accordion_data[category_name].append({
+                        'type_id': type_id,
+                        'groupName': type_info.get('groupName', ''),
+                        'typeName': type_info.get('typeName', ''),
+                        'asset_count': asset_count,
+                    })
         else:
             form = TypeNamesForm()
     else:
-        form = TypeNamesForm()
-        type_names_save = TypeSearchResult.objects.filter(character__character_id=personage)
+        # GET request - read from session storage
+        source_type = request.session.get('source_type', 'manual')
+        
+        form = TypeNamesForm(initial={'source_type': source_type})
+        
+        if source_type == 'assets':
+            # Получаем результаты на основе ассетов
+            # Фильтруем по локациям-хабам (Jita, Hek, Amarr, Dodixie, Rens)
+            
+            type_ids_from_assets = list(Asset.objects.filter(
+                character__character_id=personage,
+                location_id__in=HUB_LOCATION_IDS
+            ).values_list('type_id__type_id', flat=True).distinct())
+            type_names_save = TypeSearchResult.objects.filter(type_id__in=type_ids_from_assets, character__character_id=personage)
+        else:
+            type_names_save = TypeSearchResult.objects.filter(character__character_id=personage)
         for type_name in type_names_save:
             result_data[type_name.type_id] = {
 
@@ -144,6 +199,7 @@ def type_names_lookup(request):
                 'categoryName': type_name.category_name,
                 'groupName': type_name.group_name,
                 'typeName': type_name.type_name,
+                'asset_count': type_name.asset_count,
             })
             # Подготовка данных для аккордеона
             category_name = type_name.category_name or 'Без категории'
@@ -153,6 +209,7 @@ def type_names_lookup(request):
                 'type_id': type_name.type_id,
                 'groupName': type_name.group_name,
                 'typeName': type_name.type_name,
+                'asset_count': type_name.asset_count,
             })
 
     # Получаем текущий коэффициент
@@ -199,8 +256,14 @@ def type_names_lookup(request):
         'accordion_data': accordion_data,
     })
 
-def parse_and_save_type_search_results(type_data, personage):
-    """Функция для парсинга данных и сохранения их в модель TypeSearchResult"""
+def parse_and_save_type_search_results(type_data, personage, source_type='manual'):
+    """Функция для парсинга данных и сохранения их в модель TypeSearchResult
+    
+    Args:
+        type_data: Словарь данных о типах предметов
+        personage: ID персонажа
+        source_type: Тип источника ('manual' или 'assets')
+    """
     if not type_data:
         return
     try:
@@ -230,6 +293,10 @@ def parse_and_save_type_search_results(type_data, personage):
             obj.character.add(pers)
         elif pers not in obj.character.all():
             obj.character.add(pers)
+        
+        # Если источник - ассеты, обновляем количество
+        if source_type == 'assets':
+            obj.update_asset_count()
 
 
 @app_access_required(TradersConfig.name)

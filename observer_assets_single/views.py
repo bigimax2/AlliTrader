@@ -631,7 +631,7 @@ def parser_assets(assets, character):
                 }
             )
             action = "Created" if created else "Updated"
-            logger.info(f"{action} EveLocation entry for item_id={item['item_id']}: name={container_name}, type=item")
+
         else:
             logger.info(f"Skipping item_id {item['item_id']}, is_singleton={item['is_singleton']}")
         type_name = type_info.get('typeName', f"Type {item['type_id']}")

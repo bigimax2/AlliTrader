@@ -239,7 +239,7 @@ CACHES = {
     }
 }
 
-SDE_API_URL = 'https://api.niceplatform.ru/'
+SDE_API_URL = 'https://api.niceplatform.ru'
 SDE_API_KEY = os.getenv('SDE_API_KEY', '1KOgsy93GmqEEmcpVfFKl9IaHpOVRt9uofyxik11OG2uZJNOd5Ja34tmJ2u5m7X6asVMHHzDHarS1VH91rMm88LTpq0FG9xIuefziT7JgR87RoQkcbrOMx3ISvb4ep1j06kPugZJK844XbGUhuVRcSSdOVwYJ97N3O6o4A0VvNm4TpUVkdeb5lISSZRUrv7UklnRXjkJrdGVstEU8QHxZ5p9AGEu0hH6wqDOzdOKMtDtR9ZV56F3JaOOpoVKjFfz')
 
 # Логирование
