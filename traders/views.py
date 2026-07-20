@@ -215,7 +215,7 @@ def type_names_lookup(request):
     # Получаем текущий коэффициент
     try:
         coefficient_obj = CoefficientsMarket.objects.first()
-        coefficient = coefficient_obj.coefficient if coefficient_obj else 1.0
+        coefficient = float(coefficient_obj.coefficient) if coefficient_obj and coefficient_obj.coefficient is not None else 1.0
     except Exception:
         coefficient = 1.0
     
@@ -230,6 +230,11 @@ def type_names_lookup(request):
                     jita_price_scaled = prices.maxbuyjita * coefficient
                     
                     # Вычисляем сравнение для каждой станции
+                    has_profit_amarr = jita_price_scaled < (prices.minsellamarr or 0)
+                    has_profit_hek = jita_price_scaled < (prices.minsellhek or 0)
+                    has_profit_dodixie = jita_price_scaled < (prices.minselldodixie or 0)
+                    has_profit_rens = jita_price_scaled < (prices.minsellrens or 0)
+                    
                     computed_prices = {
                         'minsellamarr': prices.minsellamarr,
                         'minsellhek': prices.minsellhek,
@@ -237,19 +242,12 @@ def type_names_lookup(request):
                         'minsellrens': prices.minsellrens,
                         'maxbuyjita': prices.maxbuyjita,
                         'maxbuyjita_scaled': jita_price_scaled,
-                    }
-                    
-                    # Помечаем каждую цену, если jita_scaled > этой цены
-                    has_profit_amarr = jita_price_scaled > (prices.minsellamarr or 0)
-                    has_profit_hek = jita_price_scaled > (prices.minsellhek or 0)
-                    has_profit_dodixie = jita_price_scaled > (prices.minselldodixie or 0)
-                    has_profit_rens = jita_price_scaled > (prices.minsellrens or 0)
-                    
-                    computed_prices['has_profit'] = {
-                        'amarr': has_profit_amarr,
-                        'hek': has_profit_hek,
-                        'dodixie': has_profit_dodixie,
-                        'rens': has_profit_rens,
+                        'has_profit': {
+                            'amarr': has_profit_amarr,
+                            'hek': has_profit_hek,
+                            'dodixie': has_profit_dodixie,
+                            'rens': has_profit_rens,
+                        },
                     }
                 else:
                     computed_prices = {

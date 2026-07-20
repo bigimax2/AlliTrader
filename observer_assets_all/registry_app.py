@@ -17,7 +17,7 @@ def observer_assets_config():
         return None
 
     return {
-        'name': 'Observer_assets_all',
+        'name': 'Ассеты всех персонажей',
         'icon': '📈',
         'url': 'observer_assets_all:assets_overview',
 

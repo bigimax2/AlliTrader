@@ -17,7 +17,7 @@ def messenger_sidebar_config():
         return None
 
     return {
-        'name': 'Observer_assets_single',
+        'name': 'Свои ассеты',
         'icon': '📈',
         'url': 'observer_assets_single:render_traders',
         'extra_links': [

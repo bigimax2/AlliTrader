@@ -17,7 +17,7 @@ def messenger_sidebar_config():
         return None
 
     return {
-        'name': 'Traders',
+        'name': 'Для торговли',
         'icon': '📈',
         'url': 'traders:type_names_lookup',
 
