@@ -2,7 +2,10 @@ import os
 
 from bravado.exception import HTTPNotFound, HTTPUnprocessableEntity
 from django.apps.registry import apps
-from esi.exceptions import HTTPNotModified
+try:
+    from esi.exceptions import HTTPNotModified
+except (ImportError, ModuleNotFoundError):
+    HTTPNotModified = None
 from esi.models import Token
 
 app_config = apps.get_app_config('eveonline')

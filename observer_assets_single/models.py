@@ -43,6 +43,8 @@ class Asset(models.Model):
     
     location_flag = models.CharField(max_length=50, null=True, blank=True)
     
+    # Поле для заметок по алерту
+    notes = models.TextField('Заметки', blank=True, help_text="Личные заметки по этому ассету")
 
     # Связь с локацией для получения имени
     location = models.ForeignKey(

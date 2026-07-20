@@ -9,6 +9,10 @@ from eveonline.models import EveCharacter
 from observer_assets_all.apps import ObserverAssetsAllConfig
 from observer_assets_all.assets_forms import AssetsOverviewForm
 import logging
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import get_object_or_404
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +65,12 @@ def build_location_hierarchy(assets, character, alert_thresholds, alert_level_fi
                 asset.alert_level = None
         else:
             asset.alert_level = None
+        
+        # Если нет алерта - удаляем заметки
+        if asset.alert_level is None:
+            asset.notes = ''
+            asset.save()
+            logger.info(f"Очищены заметки для ассета {asset.item_id} (нет алерта)")
 
     # Получаем item_id всех ассетов в текущей локации
     location_item_ids = [asset.item_id for asset in assets]
@@ -125,6 +135,12 @@ def build_location_hierarchy(assets, character, alert_thresholds, alert_level_fi
                 content.alert_level = None
         else:
             content.alert_level = None
+        
+        # Если нет алерта - удаляем заметки
+        if content.alert_level is None:
+            content.notes = ''
+            content.save()
+            logger.info(f"Очищены заметки для контейнера {content.item_id} (нет алерта)")
 
     # Группируем ассеты
     open_assets = []
@@ -437,6 +453,41 @@ def assets_overview(request):
         'user_characters': EveCharacter.objects.filter(assets__isnull=False).distinct().order_by('name') if request.user.is_authenticated else [],
 
     })
+
+
+@app_access_required(ObserverAssetsAllConfig.name)
+@login_required
+def save_asset_notes(request):
+    """
+    View для сохранения заметок по ассету.
+    Вызывается через AJAX при изменении поля заметок.
+    """
+    if request.method == 'POST':
+        try:
+            asset_id = request.POST.get('asset_id')
+            notes = request.POST.get('notes', '')
+            
+            if not asset_id:
+                return JsonResponse({'error': 'asset_id not provided'}, status=400)
+            
+            # Получаем ассет (должен принадлежать текущему пользователю)
+            asset = get_object_or_404(Asset, item_id=asset_id)
+            
+
+            
+            # Сохраняем заметки
+            asset.notes = notes
+            asset.save()
+            
+            logger.info(f"User {request.user.id} saved notes for asset {asset_id}")
+            
+            return JsonResponse({'success': True, 'notes': notes})
+            
+        except Exception as e:
+            logger.error(f"Error saving notes: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Invalid request'}, status=400)
 
 
 

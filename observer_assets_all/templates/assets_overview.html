@@ -141,7 +141,7 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <h5 class="mb-0"><i class="fas fa-users"></i> Ассеты персонажей ({{ user_characters|length }} персонажей)</h5>
                             <div class="d-flex gap-2">
-                                <a href="{% url 'observer_assets:assets_overview' %}" class="btn btn-outline-primary btn-theme btn-sm">
+                                <a href="{% url 'observer_assets_all:assets_overview' %}" class="btn btn-outline-primary btn-theme btn-sm">
                                     <i class="fas fa-clipboard-list"></i> Все ассеты
                                 </a>
                             </div>
@@ -201,11 +201,10 @@
                                                                         <thead class="table-light thead-theme">
                                                                             <tr>
                                                                                 <th>Название предмета</th>
-                                                                                <th>Категория</th>
-                                                                                <th>Группа</th>
                                                                                 <th>Количество</th>
                                                                                 <th>Порог</th>
                                                                                 <th>Алерт</th>
+                                                                                <th>Заметки</th>
                                                                             </tr>
                                                                         </thead>
                                                                         <tbody>
@@ -218,11 +217,10 @@
                                                                             <tr>
                                                                             {% endif %}
                                                                                 <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
-                                                                                <td>{{ asset.type_id.category_name|default:"-" }}</td>
-                                                                                <td>{{ asset.type_id.group_name|default:"-" }}</td>
                                                                                 <td>{{ asset.quantity }}</td>
                                                                                 <td>{% if alert_thresholds|get_item:asset.type_id.type_id %}<span>{{ alert_thresholds|get_item:asset.type_id.type_id }}</span>{% else %}-{% endif %}</td>
                                                                                 <td>{% if asset.alert_level == 'critical' %}<span class="badge bg-danger"><i class="fas fa-exclamation-triangle"></i> Критический</span>{% elif asset.alert_level == 'warning' %}<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-circle"></i> Предупреждение</span>{% else %}-{% endif %}</td>
+                                                                                <td><textarea class="form-control form-control-sm notes-input" data-asset-id="{{ asset.item_id }}" rows="1" placeholder="Заметки...">{{ asset.notes|default:"" }}</textarea></td>
                                                                             </tr>
                                                                             {% endfor %}
                                                                         </tbody>
@@ -249,11 +247,10 @@
                                                                                     <thead class="table-light thead-theme">
                                                                                         <tr>
                                                                                             <th>Название предмета</th>
-                                                                                            <th>Категория</th>
-                                                                                            <th>Группа</th>
                                                                                             <th>Количество</th>
                                                                                             <th>Порог</th>
                                                                                             <th>Алерт</th>
+                                                                                            <th>Заметки</th>
                                                                                         </tr>
                                                                                     </thead>
                                                                                     <tbody>
@@ -266,11 +263,10 @@
                                                                                         <tr>
                                                                                         {% endif %}
                                                                                             <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
-                                                                                            <td>{{ asset.type_id.category_name|default:"-" }}</td>
-                                                                                            <td>{{ asset.type_id.group_name|default:"-" }}</td>
                                                                                             <td>{{ asset.quantity }}</td>
                                                                                             <td>{% if alert_thresholds|get_item:asset.type_id.type_id %}<span>{{ alert_thresholds|get_item:asset.type_id.type_id }}</span>{% else %}-{% endif %}</td>
                                                                                             <td>{% if asset.alert_level == 'critical' %}<span class="badge bg-danger"><i class="fas fa-exclamation-triangle"></i> Критический</span>{% elif asset.alert_level == 'warning' %}<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-circle"></i> Предупреждение</span>{% else %}-{% endif %}</td>
+                                                                                            <td><textarea class="form-control form-control-sm notes-input" data-asset-id="{{ asset.item_id }}" rows="1" placeholder="Заметки...">{{ asset.notes|default:"" }}</textarea></td>
                                                                                         </tr>
                                                                                         {% endfor %}
                                                                                     </tbody>
@@ -983,6 +979,37 @@
             color: #000;
         }
 
+        /* Стили для полей заметок */
+        [data-theme="light"] .notes-input {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            color: #333;
+            resize: none;
+            font-size: 0.875rem;
+            padding: 0.25rem 0.5rem;
+        }
+
+        [data-theme="dark"] .notes-input {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.125);
+            color: var(--text-color);
+            resize: none;
+            font-size: 0.875rem;
+            padding: 0.25rem 0.5rem;
+        }
+
+        [data-theme="light"] .notes-input:focus {
+            border-color: #417690;
+            box-shadow: none;
+            background-color: #fff;
+        }
+
+        [data-theme="dark"] .notes-input:focus {
+            border-color: #79aec8;
+            box-shadow: none;
+            background-color: var(--card-bg);
+        }
+
         /* Стили для основного контейнера с цветами админки */
         [data-theme="light"] .main-content {
             background-color: #fff;
@@ -1008,6 +1035,29 @@
                         $(this).show();
                     } else {
                         $(this).hide();
+                    }
+                });
+            });
+
+            // Автоматическое сохранение заметок при изменении
+            $('.notes-input').on('input', function() {
+                const assetId = $(this).data('asset-id');
+                const notes = $(this).val();
+                
+                $.ajax({
+                    url: '{% url "observer_assets_all:save_asset_notes" %}',
+                    method: 'POST',
+                    data: {
+                        'asset_id': assetId,
+                        'notes': notes,
+                        'csrfmiddlewaretoken': $('input[name=csrfmiddlewaretoken]').val()
+                    },
+                    dataType: 'json',
+                    success: function(response) {
+                        console.log('Заметки сохранены');
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Ошибка сохранения заметок:', error);
                     }
                 });
             });
