@@ -11,19 +11,7 @@
                     <div class="row">
                         <div class="col-md-6">
                             <h6>Добавить новый порог</h6>
-                            {% if messages %}
-                            {% for message in messages %}
-                            <div class="alert alert-{{ message.tags }} alert-theme mb-3">
-                                {% if message.tags == 'success' %}
-                                <i class="fas fa-check-circle"></i>
-                                {% else %}
-                                <i class="fas fa-info-circle"></i>
-                                {% endif %}
-                                {{ message }}
-                            </div>
-                            {% endfor %}
-                            {% endif %}
-                            <form method="post" id="alertForm">
+                            <form method="post" id="alertForm" action="{% url 'observer_assets_single:alert_settings' %}">
                                 {% csrf_token %}
                                 <div class="mb-3">
                                     {{ form.type_id.errors }}
@@ -185,17 +173,41 @@
                         <i class="fas fa-info-circle"></i> 
                         Загрузите JSON-файл с резервной копией алертов. Дубликаты будут обновлены, новые - добавлены. <strong>Пороги ≤ 0 будут пропущены.</strong>
                     </div>
-                    <form method="post" enctype="multipart/form-data" id="importForm">
+                    <div class="alert alert-warning alert-theme mb-3">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        <strong>Важно:</strong> файл должен содержать корректный JSON с полем "alerts" (список объектов с type_id и min_quantity > 0)
+                    </div>
+                    <div class="alert alert-warning alert-theme mb-3">
+                        <i class="fas fa-lightbulb"></i> 
+                        <strong>Типичные ошибки импорта:</strong>
+                        <ul class="mb-0">
+                            <li>Файл не имеет расширения .json</li>
+                            <li>Содержимое не является валидным JSON</li>
+                            <li>Отсутствует поле "alerts" или оно не является списком</li>
+                            <li>type_id или min_quantity не являются числами</li>
+                        </ul>
+                    </div>
+                    <form method="post" enctype="multipart/form-data" id="importForm" action="{% url 'observer_assets_single:import_alerts' %}">
                         {% csrf_token %}
                         <div class="mb-3">
                             <label for="alerts_file" class="form-label form-label-theme">
                                 <i class="fas fa-file-upload"></i> Выберите JSON файл
                             </label>
                             <input type="file" class="form-control form-control-theme" id="alerts_file" name="alerts_file" 
-                                   accept="application/json,.json" required>
+                                   accept="application/json,.json">
                             <small class="form-text text-muted">
-                                <i class="fas fa-info-circle"></i> Файл должен быть в формате JSON с алертами
+                                <i class="fas fa-info-circle"></i> Файл должен быть в формате JSON с алертами (см. пример ниже)
                             </small>
+                            <div class="alert alert-light alert-theme mt-2 mb-0">
+                                <i class="fas fa-code"></i> <strong>Пример JSON:</strong>
+                                <pre class="mb-0" style="font-size: 0.85rem; background-color: #f8f9fa;">{
+  "version": "1.0",
+  "alerts": [
+    {"type_id": 123, "min_quantity": 100},
+    {"type_id": 456, "min_quantity": 50}
+  ]
+}</pre>
+                            </div>
                         </div>
                         <button type="submit" class="btn btn-success btn-theme">
                             <i class="fas fa-upload"></i> Загрузить алерты
@@ -235,25 +247,6 @@ $(document).ready(function($) {
         console.error('Select2 is not loaded!');
     }
     
-    // Обработка формы добавления порога через AJAX
-    $('#alertForm').on('submit', function(e) {
-        e.preventDefault();
-        
-        $.ajax({
-            type: 'POST',
-            url: '{% url "observer_assets_single:alert_settings" %}',
-            data: $(this).serialize(),
-            success: function(response) {
-                // Обновляем страницу после успешного добавления
-                location.reload();
-            },
-            error: function(xhr, status, error) {
-                // Показываем ошибки валидации формы
-                $('#alertForm').html(xhr.responseText);
-            }
-        });
-    });
-    
     // Обработка открытия модального окна редактирования
     $('#editModal').on('show.bs.modal', function(event) {
         console.log('Modal show event triggered');
@@ -274,48 +267,7 @@ $(document).ready(function($) {
         modal.find('#edit_type_name').val(typeName);
         modal.find('#edit_min_quantity').val(thresholdQuantity);
     });
-    
-    // Обработка формы редактирования через AJAX
-    $('#editForm').on('submit', function(e) {
-        e.preventDefault();
-        
-        $.ajax({
-            type: 'POST',
-            url: '{% url "observer_assets_single:edit_threshold" %}',
-            data: $(this).serialize(),
-            success: function(response) {
-                // Обновляем страницу после успешного редактирования
-                location.reload();
-            },
-            error: function(xhr, status, error) {
-                // Показываем ошибки
-                alert('Ошибка при редактировании порога');
-            }
-        });
-    });
-    
-    // Обработка формы импорта через AJAX
-    $('#importForm').on('submit', function(e) {
-        e.preventDefault();
-        
-        var formData = new FormData(this);
-        
-        $.ajax({
-            type: 'POST',
-            url: '{% url "observer_assets_single:import_alerts" %}',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function(response) {
-                // Обновляем страницу после успешной загрузки
-                location.reload();
-            },
-            error: function(xhr, status, error) {
-                // Показываем ошибки
-                alert('Ошибка при загрузке алертов');
-            }
-        });
-    });
+
 });
 </script>
 {% endblock page_scripts %}

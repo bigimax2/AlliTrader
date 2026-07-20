@@ -758,6 +758,8 @@ def import_alerts(request):
     """Импорт алертов из JSON файла"""
     user_id = request.user.id
     
+    logger.info(f"[import_alerts] POST запрос: {request.method == 'POST'}")
+    
     if request.method == 'POST':
         if 'alerts_file' not in request.FILES:
             messages.error(request, 'Файл не выбран')
@@ -765,22 +767,73 @@ def import_alerts(request):
         
         alerts_file = request.FILES['alerts_file']
         
+        logger.info(f"[Импорт алертов] Начало импорта")
+        logger.info(f"[Импорт алертов] Имя файла: {alerts_file.name}")
+        logger.info(f"[Импорт алертов] Content-Type: {alerts_file.content_type}")
+        
+        # Проверка MIME-типа файла
+        content_type = alerts_file.content_type
+        allowed_content_types = ['application/json', 'text/plain']
+        
+        if content_type and content_type not in allowed_content_types:
+            logger.warning(f"[import_alerts] Неверный тип файла: {content_type}")
+            print(f"[DEBUG] Ошибка MIME-типа: {content_type}")
+            messages.error(request, f'Ошибка импорта: неподдерживаемый тип файла: {content_type}. Разрешены только JSON файлы (.json)')
+            print(f"[DEBUG] Сообщение добавлено, редирект...")
+            return redirect('observer_assets_single:alert_settings')
+        
+        # Проверка расширения файла
+        file_name = alerts_file.name.lower()
+        print(f"[DEBUG] Проверка расширения: {file_name}")
+        if not file_name.endswith('.json'):
+            print(f"[DEBUG] Ошибка расширения")
+            messages.error(request, 'Ошибка импорта: файл должен иметь расширение .json')
+            print(f"[DEBUG] Сообщение добавлено, редирект...")
+            return redirect('observer_assets_single:alert_settings')
+        
         try:
             # Читаем файл
             file_content = alerts_file.read().decode('utf-8')
             
-            # Парсим JSON
+            # Проверка, что содержимое не пустое
+            if not file_content.strip():
+                print(f"[DEBUG] Ошибка: файл пуст")
+                messages.error(request, 'Ошибка импорта: файл пуст. Пожалуйста, загрузите файл с алертами')
+                print(f"[DEBUG] Сообщение добавлено, редирект...")
+                return redirect('observer_assets_single:alert_settings')
+            
+            # Сначала проверяем, что файл содержит валидный JSON
+            try:
+                # Пробуем распарсить как JSON
+                temp_data = json.loads(file_content)
+                # Проверяем, что это словарь с нужной структурой
+                if not isinstance(temp_data, dict):
+                    print(f"[DEBUG] Ошибка: не является dict")
+                    messages.error(request, 'Ошибка импорта: файл должен содержать JSON объект с полем "alerts"')
+                    print(f"[DEBUG] Сообщение добавлено, редирект...")
+                    return redirect('observer_assets_single:alert_settings')
+            except json.JSONDecodeError as e:
+                print(f"[DEBUG] Ошибка JSON: {e}")
+                messages.error(request, f'Ошибка импорта: файл не является валидным JSON. Ошибка: {str(e)}')
+                print(f"[DEBUG] Сообщение добавлено, редирект...")
+                return redirect('observer_assets_single:alert_settings')
+            
+            # Теперь парсим с валидацией структуры
             export_data = json.loads(file_content)
             
             # Валидация структуры
             if 'alerts' not in export_data:
-                messages.error(request, 'Неверный формат файла: отсутствует поле "alerts"')
+                print(f"[DEBUG] Ошибка: отсутствует поле alerts")
+                messages.error(request, 'Ошибка импорта: в JSON отсутствует обязательное поле "alerts"')
+                print(f"[DEBUG] Сообщение добавлено, редирект...")
                 return redirect('observer_assets_single:alert_settings')
             
             alerts_data = export_data['alerts']
             
             if not isinstance(alerts_data, list):
-                messages.error(request, 'Неверный формат файла: "alerts" должен быть списком')
+                print(f"[DEBUG] Ошибка: alerts не список")
+                messages.error(request, 'Ошибка импорта: поле "alerts" должно содержать список объектов')
+                print(f"[DEBUG] Сообщение добавлено, редирект...")
                 return redirect('observer_assets_single:alert_settings')
             
             # Счетчики
@@ -792,18 +845,34 @@ def import_alerts(request):
             # Обрабатываем каждый алерт
             for alert_data in alerts_data:
                 try:
+                    # Проверка типов данных
+                    if not isinstance(alert_data, dict):
+                        skipped_count += 1
+                        logger.warning(f"Пропущен алерт: не является объектом")
+                        messages.warning(request, 'Пропущен алерт: данные не являются объектом JSON')
+                        continue
+                    
                     type_id = alert_data.get('type_id')
                     min_quantity = alert_data.get('min_quantity')
                     
-                    if type_id is None or min_quantity is None:
+                    # Проверка типов type_id и min_quantity
+                    if type_id is None or not isinstance(type_id, (int, float)):
                         skipped_count += 1
+                        logger.warning(f"Пропущен алерт: type_id отсутствует или не является числом")
+                        messages.warning(request, 'Пропущен алерт: type_id отсутствует или не является числом')
+                        continue
+                    
+                    if min_quantity is None or not isinstance(min_quantity, (int, float)):
+                        skipped_count += 1
+                        logger.warning(f"Пропущен алерт: min_quantity отсутствует или не является числом")
+                        messages.warning(request, 'Пропущен алерт: min_quantity отсутствует или не является числом')
                         continue
                     
                     # Валидация min_quantity: должен быть больше 0
                     if min_quantity <= 0:
                         logger.warning(f"Алерт для type_id {type_id} пропущен: min_quantity={min_quantity} (должен быть > 0)")
                         skipped_count += 1
-                        messages.warning(request, f'Алерт для "{item_type.type_name if item_type else type_id}" пропущен: порог должен быть больше 0')
+                        messages.warning(request, f'Алерт для предмета ID {type_id} пропущен: порог должен быть больше 0')
                         continue
                     
                     # Проверяем существование типа предмета
@@ -812,6 +881,7 @@ def import_alerts(request):
                     except EveItemType.DoesNotExist:
                         logger.warning(f"Тип предмета {type_id} не найден в базе, пропускаем")
                         skipped_count += 1
+                        messages.warning(request, f'Алерт для предмета ID {type_id} пропущен: тип предмета не найден в базе')
                         continue
                     
                     # Проверяем существующий алерт
@@ -844,7 +914,7 @@ def import_alerts(request):
                 f'Импорт завершен: {imported_count} новых, {updated_count} обновлено, {skipped_count} пропущено, {error_count} ошибок')
             
         except json.JSONDecodeError as e:
-            messages.error(request, f'Неверный формат JSON: {str(e)}')
+            messages.error(request, f'Неверный формат JSON файла. Убедитесь, что файл содержит корректные JSON данные. Ошибка: {str(e)}')
         except Exception as e:
             messages.error(request, f'Ошибка при импорте: {str(e)}')
         
