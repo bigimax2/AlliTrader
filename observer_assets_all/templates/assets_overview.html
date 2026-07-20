@@ -219,8 +219,21 @@
                                                                                 <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
                                                                                 <td>{{ asset.quantity }}</td>
                                                                                 <td>{% if alert_thresholds|get_item:asset.type_id.type_id %}<span>{{ alert_thresholds|get_item:asset.type_id.type_id }}</span>{% else %}-{% endif %}</td>
-                                                                                <td>{% if asset.alert_level == 'critical' %}<span class="badge bg-danger"><i class="fas fa-exclamation-triangle"></i> Критический</span>{% elif asset.alert_level == 'warning' %}<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-circle"></i> Предупреждение</span>{% else %}-{% endif %}</td>
-                                                                                <td><textarea class="form-control form-control-sm notes-input" data-asset-id="{{ asset.item_id }}" rows="1" placeholder="Заметки...">{{ asset.notes|default:"" }}</textarea></td>
+                                                                                <td>{% if asset.alert_level == 'critical' %}
+                                                                                        <span class="badge bg-danger">
+                                                                                        <i class="fas fa-exclamation-triangle"></i> Критический</span>
+                                                                                    {% elif asset.alert_level == 'warning' %}
+                                                                                        <span class="badge bg-warning text-dark">
+                                                                                            <i class="fas fa-exclamation-circle"></i> Предупреждение</span>
+                                                                                    {% else %}
+                                                                                        -
+                                                                                    {% endif %}
+                                                                                </td>
+                                                                                {% if asset.alert_level == 'critical' or asset.alert_level == 'warning' %}
+                                                                                    <td><textarea class="form-control form-control-sm notes-input" data-asset-id="{{ asset.item_id }}" rows="1" placeholder="Заметки...">{{ asset.notes|default:"" }}</textarea></td>
+                                                                                {% else %}
+                                                                                    <td></td>
+                                                                                {% endif %}
                                                                             </tr>
                                                                             {% endfor %}
                                                                         </tbody>
@@ -266,7 +279,11 @@
                                                                                             <td>{{ asset.quantity }}</td>
                                                                                             <td>{% if alert_thresholds|get_item:asset.type_id.type_id %}<span>{{ alert_thresholds|get_item:asset.type_id.type_id }}</span>{% else %}-{% endif %}</td>
                                                                                             <td>{% if asset.alert_level == 'critical' %}<span class="badge bg-danger"><i class="fas fa-exclamation-triangle"></i> Критический</span>{% elif asset.alert_level == 'warning' %}<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-circle"></i> Предупреждение</span>{% else %}-{% endif %}</td>
-                                                                                            <td><textarea class="form-control form-control-sm notes-input" data-asset-id="{{ asset.item_id }}" rows="1" placeholder="Заметки...">{{ asset.notes|default:"" }}</textarea></td>
+                                                                                        {% if asset.alert_level == 'critical' or asset.alert_level == 'warning' %}
+                                                                                        <td><textarea class="form-control form-control-sm notes-input" data-asset-id="{{ asset.item_id }}" rows="1" placeholder="Заметки...">{{ asset.notes|default:"" }}</textarea></td>
+                                                                                        {% else %}
+                                                                                         <td></td>
+                                                                                        {% endif %}
                                                                                         </tr>
                                                                                         {% endfor %}
                                                                                     </tbody>
