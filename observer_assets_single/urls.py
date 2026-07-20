@@ -10,5 +10,7 @@ urlpatterns = [
     path('alert_settings/', views.alert_settings, name='alert_settings'),
     path('delete_threshold/', views.delete_threshold, name='delete_threshold'),
     path('edit_threshold/', views.edit_threshold, name='edit_threshold'),
+    path('export_alerts/', views.export_alerts, name='export_alerts'),
+    path('import_alerts/', views.import_alerts, name='import_alerts'),
 
 ]

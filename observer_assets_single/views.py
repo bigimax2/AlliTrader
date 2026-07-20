@@ -13,7 +13,10 @@ from observer_assets_single.models import EveItemType, AlertThreshold
 from eveonline.models import EveCharacter
 from esi.models import Token
 from django.contrib import messages
+from django.http import HttpResponse, JsonResponse
 import logging
+import json
+from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
@@ -681,6 +684,142 @@ def parser_assets(assets, character):
     Asset.objects.filter(character=character).exclude(item_id__in=current_item_ids).delete()
     
     return Asset.objects.filter(character=character).count()
+
+
+@app_access_required(ObserverAssetsSingleConfig.name)
+@login_required
+def export_alerts(request):
+    """Экспорт алертов текущего пользователя в JSON файл"""
+    if request.method != 'GET':
+        messages.error(request, 'Неверный метод запроса')
+        return redirect('observer_assets_single:alert_settings')
+    
+    user_id = request.user.id
+    
+    # Получаем все алерты пользователя
+    thresholds = AlertThreshold.objects.filter(user_id=user_id).select_related('type_id')
+    
+    # Формируем JSON-структуру
+    alerts_data = []
+    for threshold in thresholds:
+        alerts_data.append({
+            'type_id': threshold.type_id.type_id,
+            'type_name': threshold.type_id.type_name,
+            'min_quantity': threshold.min_quantity
+        })
+    
+    # Создаем финальный объект с метаданными
+    export_data = {
+        'version': '1.0',
+        'exported_at': datetime.utcnow().isoformat(),
+        'user_id': user_id,
+        'alerts': alerts_data
+    }
+    
+    # Конвертируем в JSON
+    json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
+    
+    # Создаем HTTP-ответ для скачивания
+    response = HttpResponse(json_str, content_type='application/json')
+    response['Content-Disposition'] = f'attachment; filename="alerts_backup_{user_id}_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.json"'
+    
+    messages.success(request, f'Экспортировано {len(alerts_data)} алертов')
+    return response
+
+
+@app_access_required(ObserverAssetsSingleConfig.name)
+@login_required
+def import_alerts(request):
+    """Импорт алертов из JSON файла"""
+    user_id = request.user.id
+    
+    if request.method == 'POST':
+        if 'alerts_file' not in request.FILES:
+            messages.error(request, 'Файл не выбран')
+            return redirect('observer_assets_single:alert_settings')
+        
+        alerts_file = request.FILES['alerts_file']
+        
+        try:
+            # Читаем файл
+            file_content = alerts_file.read().decode('utf-8')
+            
+            # Парсим JSON
+            export_data = json.loads(file_content)
+            
+            # Валидация структуры
+            if 'alerts' not in export_data:
+                messages.error(request, 'Неверный формат файла: отсутствует поле "alerts"')
+                return redirect('observer_assets_single:alert_settings')
+            
+            alerts_data = export_data['alerts']
+            
+            if not isinstance(alerts_data, list):
+                messages.error(request, 'Неверный формат файла: "alerts" должен быть списком')
+                return redirect('observer_assets_single:alert_settings')
+            
+            # Счетчики
+            imported_count = 0
+            updated_count = 0
+            skipped_count = 0
+            error_count = 0
+            
+            # Обрабатываем каждый алерт
+            for alert_data in alerts_data:
+                try:
+                    type_id = alert_data.get('type_id')
+                    min_quantity = alert_data.get('min_quantity')
+                    
+                    if type_id is None or min_quantity is None:
+                        skipped_count += 1
+                        continue
+                    
+                    # Проверяем существование типа предмета
+                    try:
+                        item_type = EveItemType.objects.get(type_id=type_id)
+                    except EveItemType.DoesNotExist:
+                        logger.warning(f"Тип предмета {type_id} не найден в базе, пропускаем")
+                        skipped_count += 1
+                        continue
+                    
+                    # Проверяем существующий алерт
+                    existing_threshold = AlertThreshold.objects.filter(
+                        user_id=user_id,
+                        type_id=item_type
+                    ).first()
+                    
+                    if existing_threshold:
+                        # Обновляем существующий
+                        existing_threshold.min_quantity = min_quantity
+                        existing_threshold.save()
+                        updated_count += 1
+                    else:
+                        # Создаем новый
+                        AlertThreshold.objects.create(
+                            user_id=user_id,
+                            type_id=item_type,
+                            min_quantity=min_quantity
+                        )
+                        imported_count += 1
+                
+                except Exception as e:
+                    logger.error(f"Ошибка при импорте алерта: {e}")
+                    error_count += 1
+                    continue
+            
+            # Сообщаем о результате
+            messages.success(request, 
+                f'Импорт завершен: {imported_count} новых, {updated_count} обновлено, {skipped_count} пропущено, {error_count} ошибок')
+            
+        except json.JSONDecodeError as e:
+            messages.error(request, f'Неверный формат JSON: {str(e)}')
+        except Exception as e:
+            messages.error(request, f'Ошибка при импорте: {str(e)}')
+        
+        return redirect('observer_assets_single:alert_settings')
+    
+    # GET запрос - показываем форму
+    return redirect('observer_assets_single:alert_settings')
 
 
 
