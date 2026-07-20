@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator
 from eveonline.models import EveCharacter, EveCorporation
 
 
@@ -115,7 +116,9 @@ class AlertThreshold(models.Model):
         blank=False,
         db_column='type_id'
     )
-    min_quantity = models.PositiveIntegerField(null=False, blank=False, default=1)
+    min_quantity = models.PositiveIntegerField(null=False, blank=False, default=1, validators=[
+        MinValueValidator(1, message='Порог алерта должен быть больше 0')
+    ])
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

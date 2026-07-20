@@ -247,15 +247,25 @@ def render_traders(request):
                 
                 # Получаем ассеты для выбранных локаций
                 from observer_assets_single.models import Asset
+                from authenticated.models import OwnershipRecord
                 # Получаем выбранных персонажей или всех персонажей с токенами доступа к ассетам
                 selected_characters = form.cleaned_data.get('character', [])
                 if selected_characters:
                     character_ids = selected_characters
                 else:
                     # Получаем все character_id с токенами, имеющими доступ к ассетам
-                    character_ids = Token.objects.filter(
+                    # Фильтруем через OwnershipRecord, чтобы только персонажи пользователя
+                    token_character_ids = Token.objects.filter(
+                        user=request.user,
                         scopes__name__in=SCOPES_FOR_TRADERS
                     ).values_list('character_id', flat=True).distinct()
+                    
+                    ownership_character_ids = OwnershipRecord.objects.filter(
+                        user=request.user
+                    ).values_list('character_id', flat=True).distinct()
+                    
+                    # Пересекаем: только персонажи, у которых есть и токен, и OwnershipRecord
+                    character_ids = set(token_character_ids) & set(ownership_character_ids)
                 
                 assets = Asset.objects.filter(
                     character__character_id__in=character_ids,
@@ -533,6 +543,21 @@ def edit_threshold(request):
         min_quantity = request.POST.get('min_quantity')
         
         try:
+            # Валидация min_quantity
+            if min_quantity is None or min_quantity == '':
+                messages.error(request, 'Порог алерта не указан')
+                return redirect('observer_assets_single:alert_settings')
+            
+            try:
+                min_quantity = int(min_quantity)
+            except ValueError:
+                messages.error(request, 'Порог алерта должен быть числом')
+                return redirect('observer_assets_single:alert_settings')
+            
+            if min_quantity <= 0:
+                messages.error(request, 'Порог алерта должен быть больше 0')
+                return redirect('observer_assets_single:alert_settings')
+            
             threshold = AlertThreshold.objects.get(id=threshold_id, user_id=user_id)
             threshold.min_quantity = min_quantity
             threshold.save()
@@ -772,6 +797,13 @@ def import_alerts(request):
                     
                     if type_id is None or min_quantity is None:
                         skipped_count += 1
+                        continue
+                    
+                    # Валидация min_quantity: должен быть больше 0
+                    if min_quantity <= 0:
+                        logger.warning(f"Алерт для type_id {type_id} пропущен: min_quantity={min_quantity} (должен быть > 0)")
+                        skipped_count += 1
+                        messages.warning(request, f'Алерт для "{item_type.type_name if item_type else type_id}" пропущен: порог должен быть больше 0')
                         continue
                     
                     # Проверяем существование типа предмета

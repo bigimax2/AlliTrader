@@ -259,6 +259,13 @@ class AlertThresholdForm(forms.ModelForm):
         except EveItemType.DoesNotExist:
             raise forms.ValidationError('Выбранный предмет не найден')
     
+    def clean_min_quantity(self):
+        """Валидация порога алерта"""
+        min_quantity = self.cleaned_data.get('min_quantity')
+        if min_quantity is not None and min_quantity <= 0:
+            raise forms.ValidationError('Порог алерта должен быть больше 0')
+        return min_quantity
+    
     def save(self, commit=True):
         """Сохранение с правильным type_id"""
         instance = super().save(commit=False)
