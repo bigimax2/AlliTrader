@@ -914,51 +914,6 @@ def import_alerts(request):
                 return redirect('observer_assets_single:alert_settings')
             
             # Счетчики
-            # Читаем файл
-            file_content = alerts_file.read().decode('utf-8')
-            
-            # Проверка, что содержимое не пустое
-            if not file_content.strip():
-                print(f"[DEBUG] Ошибка: файл пуст")
-                messages.error(request, 'Ошибка импорта: файл пуст. Пожалуйста, загрузите файл с алертами')
-                print(f"[DEBUG] Сообщение добавлено, редирект...")
-                return redirect('observer_assets_single:alert_settings')
-            
-            # Сначала проверяем, что файл содержит валидный JSON
-            try:
-                # Пробуем распарсить как JSON
-                temp_data = json.loads(file_content)
-                # Проверяем, что это словарь с нужной структурой
-                if not isinstance(temp_data, dict):
-                    print(f"[DEBUG] Ошибка: не является dict")
-                    messages.error(request, 'Ошибка импорта: файл должен содержать JSON объект с полем "alerts"')
-                    print(f"[DEBUG] Сообщение добавлено, редирект...")
-                    return redirect('observer_assets_single:alert_settings')
-            except json.JSONDecodeError as e:
-                print(f"[DEBUG] Ошибка JSON: {e}")
-                messages.error(request, f'Ошибка импорта: файл не является валидным JSON. Ошибка: {str(e)}')
-                print(f"[DEBUG] Сообщение добавлено, редирект...")
-                return redirect('observer_assets_single:alert_settings')
-            
-            # Теперь парсим с валидацией структуры
-            export_data = json.loads(file_content)
-            
-            # Валидация структуры
-            if 'alerts' not in export_data:
-                print(f"[DEBUG] Ошибка: отсутствует поле alerts")
-                messages.error(request, 'Ошибка импорта: в JSON отсутствует обязательное поле "alerts"')
-                print(f"[DEBUG] Сообщение добавлено, редирект...")
-                return redirect('observer_assets_single:alert_settings')
-            
-            alerts_data = export_data['alerts']
-            
-            if not isinstance(alerts_data, list):
-                print(f"[DEBUG] Ошибка: alerts не список")
-                messages.error(request, 'Ошибка импорта: поле "alerts" должно содержать список объектов')
-                print(f"[DEBUG] Сообщение добавлено, редирект...")
-                return redirect('observer_assets_single:alert_settings')
-            
-            # Счетчики
             imported_count = 0
             updated_count = 0
             skipped_count = 0
