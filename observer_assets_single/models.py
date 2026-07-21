@@ -107,8 +107,15 @@ class Asset(models.Model):
 
 
 class AlertThreshold(models.Model):
-    """Индивидуальные пороги алертов для пользователей"""
-    user_id = models.PositiveBigIntegerField(null=False, blank=False)
+    """Индивидуальные пороги алертов для главного персонажа"""
+    character = models.ForeignKey(
+        EveCharacter,
+        on_delete=models.CASCADE,
+        related_name='alert_thresholds',
+        verbose_name='Персонаж',
+        null=True,
+        blank=True
+    )
     type_id = models.ForeignKey(
         EveItemType,
         on_delete=models.CASCADE,
@@ -125,12 +132,13 @@ class AlertThreshold(models.Model):
     class Meta:
         verbose_name = "Порог алерта"
         verbose_name_plural = "Пороги алертов"
-        unique_together = ('user_id', 'type_id')
+        unique_together = ('character', 'type_id')
         indexes = [
-            models.Index(fields=['user_id']),
+            models.Index(fields=['character']),
             models.Index(fields=['type_id']),
         ]
 
     def __str__(self):
         type_name = self.type_id.type_name if self.type_id else "Неизвестно"
-        return f"User {self.user_id} - {type_name}: {self.min_quantity}"
+        character_name = self.character.name if self.character else "Неизвестно"
+        return f"{character_name} - {type_name}: {self.min_quantity}"

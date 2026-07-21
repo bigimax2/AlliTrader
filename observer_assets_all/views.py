@@ -287,13 +287,11 @@ def assets_overview(request):
                 if category_names and '' not in category_names:
                     assets = assets.filter(type_id__category_name__in=category_names)
 
-                # Загружаем пороги алертов для текущего пользователя
-                user_id = request.user.id if request.user.is_authenticated else 0
-
+                # Загружаем пороги алертов для всех выбранных персонажей
                 alert_thresholds = {at.type_id_id: at.min_quantity for at in
-                                    AlertThreshold.objects.filter(user_id=user_id)}
+                                    AlertThreshold.objects.filter(character__character_id__in=character_ids)}
 
-                logger.info(f"User ID: {user_id}, Порогов алертов: {len(alert_thresholds)}")
+
                 logger.info(f"Пороги: {alert_thresholds}")
 
                 # Фильтруем по alert_level после вычисления для всех ассетов (включая контейнеры)

@@ -301,12 +301,25 @@ def render_traders(request):
                 
                 assets = assets.order_by('character__name', 'location__location_id', 'type_id')
                 
-                # Загружаем пороги алертов для текущего пользователя
+                # Загружаем пороги алертов для main_character пользователя
+                from authenticated.models import UserProfile
                 user_id = request.user.id if request.user.is_authenticated else 0
-                from observer_assets_single.models import AlertThreshold
-                alert_thresholds = {at.type_id_id: at.min_quantity for at in AlertThreshold.objects.filter(user_id=user_id)}
                 
-                logger.info(f"User ID: {user_id}, Порогов алертов: {len(alert_thresholds)}")
+                # Получаем main_character
+                try:
+                    main_character = request.user.userprofile.main_character
+                except UserProfile.DoesNotExist:
+                    main_character = None
+                
+                # Получаем пороги алертов для main_character
+                from observer_assets_single.models import AlertThreshold
+                if main_character:
+                    alert_thresholds = {at.type_id_id: at.min_quantity for at in AlertThreshold.objects.filter(character=main_character)}
+                    logger.info(f"Main Character: {main_character.name} (ID: {main_character.character_id}), Порогов алертов: {len(alert_thresholds)}")
+                else:
+                    alert_thresholds = {}
+                    logger.info(f"Main character not found for user {user_id}, no alert thresholds")
+                
                 logger.info(f"Пороги: {alert_thresholds}")
                 
                 # Добавляем информацию о низком количестве
@@ -429,14 +442,24 @@ def get_token_assets(request, token):
 def alert_settings(request):
     """Страница настройки порогов алертов"""
     from observer_assets_single.models import AlertThreshold
+    from authenticated.models import UserProfile
     
-    user_id = request.user.id
+    # Получаем main_character пользователя
+    try:
+        main_character = request.user.userprofile.main_character
+    except UserProfile.DoesNotExist:
+        messages.error(request, 'У вас нет основного персонажа. Пожалуйста, установите основной персонаж в профиле.')
+        return redirect('authenticated:profile')
     
+    if not main_character:
+        messages.error(request, 'У вас нет основного персонажа. Пожалуйста, установите основной персонаж в профиле.')
+        return redirect('authenticated:profile')
+
     # Получаем все доступные предметы
     all_types = EveItemType.objects.all().order_by('type_name')
     
-    # Получаем уже настроенные пороги для текущего пользователя
-    existing_thresholds = AlertThreshold.objects.filter(user_id=user_id)
+    # Получаем уже настроенные пороги для main_character
+    existing_thresholds = AlertThreshold.objects.filter(character=main_character)
     existing_type_ids = set(existing_thresholds.values_list('type_id_id', flat=True))
     
     # Создаем словарь для быстрого доступа к порогам
@@ -450,8 +473,8 @@ def alert_settings(request):
         if threshold_id:
             # Редактирование существующего порога
             try:
-                threshold = AlertThreshold.objects.get(id=threshold_id, user_id=user_id)
-                form = AlertThresholdForm(request.POST, instance=threshold, user=request.user)
+                threshold = AlertThreshold.objects.get(id=threshold_id, character=main_character)
+                form = AlertThresholdForm(request.POST, instance=threshold)
                 if form.is_valid():
                     form.save()
                     messages.success(request, 'Порог алерта успешно обновлен!')
@@ -463,14 +486,14 @@ def alert_settings(request):
                 return redirect('observer_assets_single:alert_settings')
         else:
             # Создание нового порога или обновление существующего
-            form = AlertThresholdForm(request.POST, user=request.user)
+            form = AlertThresholdForm(request.POST)
             if form.is_valid():
                 type_id_obj = form.cleaned_data.get('type_id')
                 min_quantity = form.cleaned_data.get('min_quantity')
                 
                 # Проверяем, существует ли уже алерт для этого предмета
                 existing_threshold = AlertThreshold.objects.filter(
-                    user_id=user_id,
+                    character=main_character,
                     type_id=type_id_obj
                 ).first()
                 
@@ -482,8 +505,8 @@ def alert_settings(request):
                 else:
                     # Создаем новый алерт
                     threshold = form.save(commit=False)
-                    threshold.user_id = user_id
-                    logger.info(f"Saving threshold: user_id={user_id}, type_id={threshold.type_id}, min_quantity={threshold.min_quantity}")
+                    threshold.character = main_character
+                    logger.info(f"Saving threshold: character={main_character.name}, type_id={threshold.type_id}, min_quantity={threshold.min_quantity}")
                     threshold.save()
                     messages.success(request, 'Порог алерта успешно добавлен!')
                 return redirect('observer_assets_single:alert_settings')
@@ -514,17 +537,31 @@ def alert_settings(request):
         'all_types': all_types,
         'thresholds_list': thresholds_list,
         'existing_type_ids': existing_type_ids,
+        'main_character': main_character,
     })
 
 
 def delete_threshold(request):
     """Удаление порога алерта"""
+    from authenticated.models import UserProfile
+    from observer_assets_single.models import AlertThreshold
+    
     if request.method == 'POST' and request.user.is_authenticated:
-        user_id = request.user.id
+        # Получаем main_character пользователя
+        try:
+            main_character = request.user.userprofile.main_character
+        except UserProfile.DoesNotExist:
+            messages.error(request, 'У вас нет основного персонажа')
+            return redirect('authenticated:profile')
+        
+        if not main_character:
+            messages.error(request, 'У вас нет основного персонажа')
+            return redirect('authenticated:profile')
+        
         threshold_id = request.POST.get('threshold_id')
         
         try:
-            AlertThreshold.objects.filter(id=threshold_id, user_id=user_id).delete()
+            AlertThreshold.objects.filter(id=threshold_id, character=main_character).delete()
             messages.success(request, 'Порог алерта успешно удален!')
             return redirect('observer_assets_single:alert_settings')
         except Exception as e:
@@ -537,8 +574,21 @@ def delete_threshold(request):
 
 def edit_threshold(request):
     """Редактирование порога алерта"""
+    from authenticated.models import UserProfile
+    from observer_assets_single.models import AlertThreshold
+    
     if request.method == 'POST' and request.user.is_authenticated:
-        user_id = request.user.id
+        # Получаем main_character пользователя
+        try:
+            main_character = request.user.userprofile.main_character
+        except UserProfile.DoesNotExist:
+            messages.error(request, 'У вас нет основного персонажа')
+            return redirect('authenticated:profile')
+        
+        if not main_character:
+            messages.error(request, 'У вас нет основного персонажа')
+            return redirect('authenticated:profile')
+        
         threshold_id = request.POST.get('threshold_id')
         min_quantity = request.POST.get('min_quantity')
         
@@ -558,7 +608,7 @@ def edit_threshold(request):
                 messages.error(request, 'Порог алерта должен быть больше 0')
                 return redirect('observer_assets_single:alert_settings')
             
-            threshold = AlertThreshold.objects.get(id=threshold_id, user_id=user_id)
+            threshold = AlertThreshold.objects.get(id=threshold_id, character=main_character)
             threshold.min_quantity = min_quantity
             threshold.save()
             messages.success(request, 'Порог алерта успешно обновлен!')
@@ -715,14 +765,26 @@ def parser_assets(assets, character):
 @login_required
 def export_alerts(request):
     """Экспорт алертов текущего пользователя в JSON файл"""
+    from authenticated.models import UserProfile
+    from observer_assets_single.models import AlertThreshold
+    
     if request.method != 'GET':
         messages.error(request, 'Неверный метод запроса')
         return redirect('observer_assets_single:alert_settings')
     
-    user_id = request.user.id
+    # Получаем main_character пользователя
+    try:
+        main_character = request.user.userprofile.main_character
+    except UserProfile.DoesNotExist:
+        messages.error(request, 'У вас нет основного персонажа')
+        return redirect('observer_assets_single:alert_settings')
     
-    # Получаем все алерты пользователя
-    thresholds = AlertThreshold.objects.filter(user_id=user_id).select_related('type_id')
+    if not main_character:
+        messages.error(request, 'У вас нет основного персонажа')
+        return redirect('observer_assets_single:alert_settings')
+    
+    # Получаем все алерты для main_character
+    thresholds = AlertThreshold.objects.filter(character=main_character).select_related('type_id')
     
     # Формируем JSON-структуру
     alerts_data = []
@@ -737,7 +799,8 @@ def export_alerts(request):
     export_data = {
         'version': '1.0',
         'exported_at': datetime.utcnow().isoformat(),
-        'user_id': user_id,
+        'character_id': main_character.character_id,
+        'character_name': main_character.name,
         'alerts': alerts_data
     }
     
@@ -746,7 +809,7 @@ def export_alerts(request):
     
     # Создаем HTTP-ответ для скачивания
     response = HttpResponse(json_str, content_type='application/json')
-    response['Content-Disposition'] = f'attachment; filename="alerts_backup_{user_id}_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.json"'
+    response['Content-Disposition'] = f'attachment; filename="alerts_backup_{main_character.character_id}_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.json"'
     
     messages.success(request, f'Экспортировано {len(alerts_data)} алертов')
     return response
@@ -756,8 +819,22 @@ def export_alerts(request):
 @login_required
 def import_alerts(request):
     """Импорт алертов из JSON файла"""
-    user_id = request.user.id
+    from authenticated.models import UserProfile
+    from observer_assets_single.models import AlertThreshold
     
+    # Получаем main_character пользователя
+    try:
+        main_character = request.user.userprofile.main_character
+    except UserProfile.DoesNotExist:
+        messages.error(request, 'У вас нет основного персонажа')
+        return redirect('observer_assets_single:alert_settings')
+    
+    if not main_character:
+        messages.error(request, 'У вас нет основного персонажа')
+        return redirect('observer_assets_single:alert_settings')
+    
+    user_id = request.user.id
+
     logger.info(f"[import_alerts] POST запрос: {request.method == 'POST'}")
     
     if request.method == 'POST':
@@ -792,6 +869,51 @@ def import_alerts(request):
             return redirect('observer_assets_single:alert_settings')
         
         try:
+            # Читаем файл
+            file_content = alerts_file.read().decode('utf-8')
+            
+            # Проверка, что содержимое не пустое
+            if not file_content.strip():
+                print(f"[DEBUG] Ошибка: файл пуст")
+                messages.error(request, 'Ошибка импорта: файл пуст. Пожалуйста, загрузите файл с алертами')
+                print(f"[DEBUG] Сообщение добавлено, редирект...")
+                return redirect('observer_assets_single:alert_settings')
+            
+            # Сначала проверяем, что файл содержит валидный JSON
+            try:
+                # Пробуем распарсить как JSON
+                temp_data = json.loads(file_content)
+                # Проверяем, что это словарь с нужной структурой
+                if not isinstance(temp_data, dict):
+                    print(f"[DEBUG] Ошибка: не является dict")
+                    messages.error(request, 'Ошибка импорта: файл должен содержать JSON объект с полем "alerts"')
+                    print(f"[DEBUG] Сообщение добавлено, редирект...")
+                    return redirect('observer_assets_single:alert_settings')
+            except json.JSONDecodeError as e:
+                print(f"[DEBUG] Ошибка JSON: {e}")
+                messages.error(request, f'Ошибка импорта: файл не является валидным JSON. Ошибка: {str(e)}')
+                print(f"[DEBUG] Сообщение добавлено, редирект...")
+                return redirect('observer_assets_single:alert_settings')
+            
+            # Теперь парсим с валидацией структуры
+            export_data = json.loads(file_content)
+            
+            # Валидация структуры
+            if 'alerts' not in export_data:
+                print(f"[DEBUG] Ошибка: отсутствует поле alerts")
+                messages.error(request, 'Ошибка импорта: в JSON отсутствует обязательное поле "alerts"')
+                print(f"[DEBUG] Сообщение добавлено, редирект...")
+                return redirect('observer_assets_single:alert_settings')
+            
+            alerts_data = export_data['alerts']
+            
+            if not isinstance(alerts_data, list):
+                print(f"[DEBUG] Ошибка: alerts не список")
+                messages.error(request, 'Ошибка импорта: поле "alerts" должно содержать список объектов')
+                print(f"[DEBUG] Сообщение добавлено, редирект...")
+                return redirect('observer_assets_single:alert_settings')
+            
+            # Счетчики
             # Читаем файл
             file_content = alerts_file.read().decode('utf-8')
             
@@ -886,7 +1008,7 @@ def import_alerts(request):
                     
                     # Проверяем существующий алерт
                     existing_threshold = AlertThreshold.objects.filter(
-                        user_id=user_id,
+                        character=main_character,
                         type_id=item_type
                     ).first()
                     
@@ -898,7 +1020,7 @@ def import_alerts(request):
                     else:
                         # Создаем новый
                         AlertThreshold.objects.create(
-                            user_id=user_id,
+                            character=main_character,
                             type_id=item_type,
                             min_quantity=min_quantity
                         )

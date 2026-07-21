@@ -236,7 +236,7 @@ class AlertThresholdForm(forms.ModelForm):
         }
     
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        # user не нужен, так как character устанавливается в views.py
         super().__init__(*args, **kwargs)
         # Заполняем список предметов
         self.fields['type_id'].choices = [(item.type_id, item.type_name) for item in EveItemType.objects.all().order_by('type_name')]
@@ -267,7 +267,7 @@ class AlertThresholdForm(forms.ModelForm):
         return min_quantity
     
     def save(self, commit=True):
-        """Сохранение с правильным type_id"""
+        """Сохранение с правильным type_id и character"""
         instance = super().save(commit=False)
         type_id = self.cleaned_data.get('type_id')
         if isinstance(type_id, EveItemType):
