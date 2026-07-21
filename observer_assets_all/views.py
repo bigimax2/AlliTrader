@@ -40,8 +40,6 @@ def build_location_hierarchy(assets, character, alert_thresholds, alert_level_fi
         - 'open_assets': список ассетов на открытом пространстве
         - 'container_groups': словарь {item_id: {'name': ..., 'assets': [...]}}
     """
-    from observer_assets_single.models import Asset
-
     if not assets:
         return {'open_assets': [], 'container_groups': {}}
 
@@ -188,19 +186,37 @@ def build_location_hierarchy(assets, character, alert_thresholds, alert_level_fi
 
     # Фильтруем результаты по alert_level_filter, если задан
     if alert_level_filter:
-        open_assets = [asset for asset in open_assets if getattr(asset, 'alert_level', None) == alert_level_filter]
-        
-        # Фильтруем контейнеры: оставляем только те, у которых есть ассеты с нужным уровнем алерта
-        filtered_container_groups = {}
-        for item_id, container_data in container_groups.items():
-            filtered_assets = [asset for asset in container_data['assets'] 
-                              if getattr(asset, 'alert_level', None) == alert_level_filter]
-            if filtered_assets:
-                filtered_container_groups[item_id] = {
-                    **container_data,
-                    'assets': filtered_assets
-                }
-        container_groups = filtered_container_groups
+        # Если выбрана опция "все алерты" - показываем и warning и critical
+        if alert_level_filter == 'all_alerts':
+            # Оставляем ассеты с alert_level 'warning' или 'critical'
+            open_assets = [asset for asset in open_assets if getattr(asset, 'alert_level', None) in ['warning', 'critical']]
+            
+            # Фильтруем контейнеры: оставляем только те, у которых есть ассеты с любым алертом
+            filtered_container_groups = {}
+            for item_id, container_data in container_groups.items():
+                filtered_assets = [asset for asset in container_data['assets'] 
+                                  if getattr(asset, 'alert_level', None) in ['warning', 'critical']]
+                if filtered_assets:
+                    filtered_container_groups[item_id] = {
+                        **container_data,
+                        'assets': filtered_assets
+                    }
+            container_groups = filtered_container_groups
+        else:
+            # Старая логика для 'critical' или 'warning'
+            open_assets = [asset for asset in open_assets if getattr(asset, 'alert_level', None) == alert_level_filter]
+            
+            # Фильтруем контейнеры: оставляем только те, у которых есть ассеты с нужным уровнем алерта
+            filtered_container_groups = {}
+            for item_id, container_data in container_groups.items():
+                filtered_assets = [asset for asset in container_data['assets'] 
+                                  if getattr(asset, 'alert_level', None) == alert_level_filter]
+                if filtered_assets:
+                    filtered_container_groups[item_id] = {
+                        **container_data,
+                        'assets': filtered_assets
+                    }
+            container_groups = filtered_container_groups
 
     return {'open_assets': open_assets, 'container_groups': container_groups}
 
@@ -212,6 +228,7 @@ def assets_overview(request):
     if request.method == 'POST':
         form = AssetsOverviewForm(request.POST, user=request.user)
         locations_selected = []
+        alert_thresholds = {}  # По умолчанию пустой, заполняется ниже
 
 
         # Сохраняем состояние чекбокса в session
@@ -287,31 +304,20 @@ def assets_overview(request):
                 if category_names and '' not in category_names:
                     assets = assets.filter(type_id__category_name__in=category_names)
 
-                # Загружаем пороги алертов для всех выбранных персонажей
-                alert_thresholds = {at.type_id_id: at.min_quantity for at in
-                                    AlertThreshold.objects.filter(character__character_id__in=character_ids, is_active=True)}
-
-
-                logger.info(f"Пороги: {alert_thresholds}")
-
-                # Фильтруем по alert_level после вычисления для всех ассетов (включая контейнеры)
-                # Для этого сначала строим иерархию, потом фильтруем по alert_level
+                # Получаем фильтр по уровню алерта
                 alert_level_filter = form.cleaned_data.get('alert_level', '')
-
-                assets = assets.order_by('character__name', 'location__location_id', 'type_id')
 
                 logger.info(f"Выбрано локаций: {len(locations_selected)}, ID: {location_ids}")
                 logger.info(f"Найдено ассетов: {assets.count()}")
-                logger.info(f"Порогов алертов: {len(alert_thresholds)}")
                 logger.info(f"Выбран фильтр по alert_level: '{alert_level_filter}'")
 
                 # Если нет настроенных алертов - не отображаем ассеты
-                if not alert_thresholds:
+                if not AlertThreshold.objects.filter(character__character_id__in=character_ids, is_active=True).exists():
                     assets = assets.none()
                     location_data = {}
                     messages.warning(request, 'У вас не настроены пороги алертов для отслеживания. Пожалуйста, настройте алерты в настройках профиля.')
                     logger.info("Нет настроенных алертов, ассеты не отображаются")
-                elif alert_level_filter and not alert_thresholds:
+                elif alert_level_filter and not AlertThreshold.objects.filter(character__character_id__in=character_ids, is_active=True).exists():
                     assets = assets.none()
                     location_data = {}
                     logger.info("Выбран фильтр по алерту, но пороги не найдены")
@@ -335,9 +341,14 @@ def assets_overview(request):
                         if asset.character:
                             assets_by_character[asset.character].append(asset)
                     
-                    # Для каждого персонажа группируем по локациям
+                    # Для каждого персонажа загружаем свои пороги алертов и строим иерархию
                     for character, char_assets in assets_by_character.items():
                         character_name = character.name if character else "Unknown Character"
+                        
+                        # Загружаем пороги алертов только для текущего персонажа
+                        character_alert_thresholds = {at.type_id_id: at.min_quantity for at in
+                                    AlertThreshold.objects.filter(character=character, is_active=True)}
+                        logger.info(f"Пороги для персонажа {character_name}: {character_alert_thresholds}")
                         
                         # Группируем ассеты персонажа по локациям
                         assets_by_location = defaultdict(list)
@@ -359,10 +370,18 @@ def assets_overview(request):
                                 location_data[character_name] = {}
                             
                             location_data[character_name][location_name] = build_location_hierarchy(loc_assets, character,
-                                                                                                         alert_thresholds, alert_level_filter)
+                                                                                                         character_alert_thresholds, alert_level_filter)
                             logger.info(f"Построена иерархия для персонажа {character_name}, локации {location_name}")
 
                     logger.info(f"Строено иерархий для персонажей: {len(location_data)}")
+
+                    # Собираем все пороги алертов для всех персонажей в один словарь для передачи в шаблон
+                    # Если есть ассеты, объединяем пороги всех персонажей
+                    if assets.exists():
+                        alert_thresholds = {at.type_id_id: at.min_quantity for at in
+                                    AlertThreshold.objects.filter(character__character_id__in=character_ids, is_active=True)}
+                    else:
+                        alert_thresholds = {}
 
                     # Удаляем локации, где оба списка пустые (нет ассетов, соответствующих фильтру)
                     if alert_level_filter and location_data:

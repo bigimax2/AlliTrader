@@ -185,8 +185,12 @@
                             <thead class="table-light">
                                 <tr>
 
-                                    <th rowspan="2" class="text-center border-edges_id">ID</th>
-                                    <th rowspan="2" class="text-center border-edges_name">Название</th>
+                                    <th rowspan="2" class="text-center border-edges_id sortable-column" data-sort="id" data-order="asc">
+                                        ID <span class="sort-arrow">↑</span>
+                                    </th>
+                                    <th rowspan="2" class="text-center border-edges_name sortable-column" data-sort="name" data-order="asc">
+                                        Название <span class="sort-arrow">↑</span>
+                                    </th>
                                     <th colspan="1" class="text-center border-edges border-amarr">Amarr</th>
                                     <th colspan="1" class="text-center border-edges border-hek">Hek</th>
                                     <th colspan="1" class="text-center border-edges border-dodixie">Dodixie</th>
@@ -205,8 +209,9 @@
                             <tbody>
 
                              {% for type in type_names_save %}
+                                 <!-- DEBUG: Rendering type {{ forloop.counter }}/{{ type_names_save|length }} - type_id={{ type.type_id }} -->
                                  <tr>
-                                 <td class="text-center">{{ type.type_id }}</td>
+                                 <td class="text-center">{{ type.type_id }}<!-- DEBUG: type_id={{ type.type_id }}, type_name={{ type.type_name }}--></td>
                                  <td class="text-center">{{ type.type_name }}</td>
                                  {# Amarr #}
                                  {% if type.computed_prices.has_profit.amarr %}
@@ -236,7 +241,7 @@
                                  </tr>
                              {% endfor %}
 
-                                <!-- Данные будут добавлены позже -->
+                            <!-- DEBUG: type_names_save count={{ type_names_save|length }} -->
                             </tbody>
                         </table>
                     </div>
@@ -245,6 +250,7 @@
         </div>
     </div>
 </div>
+{% endblock content %}
 
 {% block page_styles %}
 <style>
@@ -594,6 +600,36 @@
     [data-theme="dark"] .accordion-button:not(.collapsed) {
         background-color: rgba(13, 110, 253, 0.2);
     }
+    
+    /* Стили для сортируемых заголовков */
+    .sortable-column {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        user-select: none;
+    }
+    
+    .sortable-column:hover {
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+    
+    .sortable-column.sorted {
+        background-color: rgba(13, 110, 253, 0.2);
+    }
+    
+    [data-theme="light"] .sortable-column.sorted {
+        background-color: #e7f1ff;
+    }
+    
+    [data-theme="dark"] .sortable-column.sorted {
+        background-color: rgba(13, 110, 253, 0.2);
+    }
+    
+    .sort-arrow {
+        margin-left: 4px;
+        font-size: 0.8em;
+        display: inline-block;
+        width: 12px;
+    }
 </style>
 {% endblock page_styles %}
 
@@ -663,6 +699,132 @@ if (typeNamesField) {
         typeNamesField.placeholder = 'Предметы будут взяты из ассетов персонажа';
     }
 }
+
+// Сортировка таблицы статистики цен
+function sortTableBy(column, order) {
+    // Используем более точный селектор для правой таблицы (в col-lg-9)
+    const table = document.querySelector('.col-lg-9 .card-body.card-body-theme table');
+    if (!table) return;
+    
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    if (rows.length === 0) {
+        return;
+    }
+    
+    let sortIndex;
+    if (column === 'id') {
+        sortIndex = 0; // ID - первый столбец в tbody правой таблицы
+    } else if (column === 'name') {
+        sortIndex = 1; // Название - второй столбец в tbody
+    } else {
+        return;
+    }
+    
+    rows.sort((a, b) => {
+        const cellsA = a.children;
+        const cellsB = b.children;
+        
+        let cellA = cellsA[sortIndex] ? cellsA[sortIndex].textContent.trim() : '';
+        let cellB = cellsB[sortIndex] ? cellsB[sortIndex].textContent.trim() : '';
+        
+        cellA = cellA.replace(/<[^>]*>?/gm, '');
+        cellB = cellB.replace(/<[^>]*>?/gm, '');
+        
+        let comparison = 0;
+        if (column === 'id') {
+            const numA = parseInt(cellA) || 0;
+            const numB = parseInt(cellB) || 0;
+            comparison = numA - numB;
+        } else {
+            comparison = cellA.localeCompare(cellB, 'en', { ignoreCase: true });
+        }
+        
+        return order === 'asc' ? comparison : -comparison;
+    });
+    
+    rows.forEach(row => tbody.appendChild(row));
+    
+    updateSortArrowsInHeaders(column, order);
+}
+
+function updateSortArrowsInHeaders(currentColumn, currentOrder) {
+    const headers = document.querySelectorAll('.sortable-column');
+    headers.forEach(header => {
+        const sortColumn = header.dataset.sort;
+        const sortOrder = header.dataset.order;
+        const arrow = header.querySelector('.sort-arrow');
+        
+        if (sortColumn === currentColumn) {
+            arrow.textContent = currentOrder === 'asc' ? '↑' : '↓';
+            header.classList.add('sorted');
+        } else {
+            header.dataset.order = 'asc';
+            arrow.textContent = '↑';
+            header.classList.remove('sorted');
+        }
+    });
+}
+
+// Обработчики кликов по заголовкам колонок для сортировки
+const sortableColumns = document.querySelectorAll('.sortable-column');
+sortableColumns.forEach(header => {
+    header.addEventListener('click', function() {
+        const column = this.dataset.sort;
+        let order = this.dataset.order;
+        
+        // Если кликнули на ту же колонку - инвертируем порядок
+        if (this.classList.contains('sorted')) {
+            order = order === 'asc' ? 'desc' : 'asc';
+        } else {
+            // Если кликнули на новую колонку - сбрасываем другие
+            sortableColumns.forEach(h => {
+                if (h !== this) {
+                    h.dataset.order = 'asc';
+                    h.classList.remove('sorted');
+                }
+            });
+            order = 'asc';
+        }
+        
+        this.dataset.order = order;
+        sortTableBy(column, order);
+        saveSortState(column, order);
+    });
+});
+
+// Сохранение состояния сортировки в localStorage
+function saveSortState(column, order) {
+    localStorage.setItem('type_names_lookup_sort_column', column);
+    localStorage.setItem('type_names_lookup_sort_order', order);
+}
+
+// Восстановление состояния сортировки при загрузке
+function restoreSortState() {
+    const savedColumn = localStorage.getItem('type_names_lookup_sort_column');
+    const savedOrder = localStorage.getItem('type_names_lookup_sort_order');
+    
+    if (savedColumn && savedOrder) {
+        const header = document.querySelector(`.sortable-column[data-sort="${savedColumn}"]`);
+        if (header) {
+            header.dataset.order = savedOrder;
+            sortTableBy(savedColumn, savedOrder);
+        }
+    }
+}
+
+// Выполняем восстановление при загрузке страницы
+// (если данные в таблице уже есть)
+// Убрали автоматическое восстановление сортировки, будет восстанавливаться только при клике
+// на заголовок после того, как данные отрисованы
+// setTimeout(function() {
+//     const tbody = document.querySelector('.card-body.card-body-theme table tbody');
+//     if (tbody && tbody.children.length > 0) {
+//         restoreSortState();
+//     }
+// }, 500);
 </script>
 {% endblock page_scripts %}
-{% endblock content %}
