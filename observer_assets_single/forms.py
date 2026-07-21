@@ -224,10 +224,11 @@ class AlertThresholdForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'form-select select2-search', 'style': 'width: 100%;'}),
         help_text='Выберите предмет из списка'
     )
+    is_active = forms.BooleanField(required=False, initial=True, label="Активен", help_text="Если отключить, алерт не будет отображаться в таблице ассетов")
     
     class Meta:
         model = AlertThreshold
-        fields = ['min_quantity']
+        fields = ['min_quantity', 'is_active']
         widgets = {
             'min_quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
         }

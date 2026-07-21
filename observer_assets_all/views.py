@@ -289,7 +289,7 @@ def assets_overview(request):
 
                 # Загружаем пороги алертов для всех выбранных персонажей
                 alert_thresholds = {at.type_id_id: at.min_quantity for at in
-                                    AlertThreshold.objects.filter(character__character_id__in=character_ids)}
+                                    AlertThreshold.objects.filter(character__character_id__in=character_ids, is_active=True)}
 
 
                 logger.info(f"Пороги: {alert_thresholds}")

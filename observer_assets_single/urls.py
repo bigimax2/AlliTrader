@@ -12,5 +12,6 @@ urlpatterns = [
     path('edit_threshold/', views.edit_threshold, name='edit_threshold'),
     path('export_alerts/', views.export_alerts, name='export_alerts'),
     path('import_alerts/', views.import_alerts, name='import_alerts'),
+    path('toggle_alert_active/<int:threshold_id>/', views.toggle_alert_active, name='toggle_alert_active'),
 
 ]

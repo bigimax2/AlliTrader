@@ -17,9 +17,79 @@ from django.http import HttpResponse, JsonResponse
 import logging
 import json
 from datetime import datetime
+from EVE_Online_SQLite_API import get_type_id
 
 
 logger = logging.getLogger(__name__)
+
+
+def get_or_create_item_type(type_id, character=None):
+    """
+    Получает тип предмета из API и сохраняет в базе данных, если он не найден
+    
+    Args:
+        type_id: ID типа предмета
+        character: Объект EveCharacter для проверки наличия ассетов (опционально)
+    
+    Returns:
+        tuple: (EveItemType объект, bool created, bool has_asset)
+    """
+    from observer_assets_single.models import EveItemType, Asset
+    
+    try:
+        # Сначала ищем в базе
+        item_type = EveItemType.objects.get(type_id=type_id)
+        created = False
+        # Проверяем наличие ассета если передан character
+        has_asset = False
+        if character:
+            has_asset = Asset.objects.filter(
+                character=character,
+                type_id=item_type
+            ).exists()
+        return item_type, created, has_asset
+    except EveItemType.DoesNotExist:
+        # Если не найден - получаем из API
+        try:
+            item_data = get_type_id(type_id)
+            if item_data:
+                # Извлекаем данные из API ответа
+                type_name = item_data.get('typeName', f'Unknown Item {type_id}')
+                
+                # Сохраняем в базу
+                item_type = EveItemType.objects.create(
+                    type_id=type_id,
+                    type_name=type_name,
+                    group_id=item_data.get('groupID'),
+                    group_name=item_data.get('groupName'),
+                    category_id=item_data.get('categoryID'),
+                    category_name=item_data.get('categoryName'),
+                    published=item_data.get('published', True)
+                )
+                logger.info(f"Создан новый тип предмета: {type_id} ({type_name})")
+                created = True
+                has_asset = False
+                if character:
+                    has_asset = Asset.objects.filter(
+                        character=character,
+                        type_id=item_type
+                    ).exists()
+                return item_type, created, has_asset
+        except Exception as e:
+            logger.error(f"Ошибка при получении типа предмета {type_id} из API: {e}")
+        
+        # Если API не дал данные - создаем заглушку
+        item_type = EveItemType.objects.create(
+            type_id=type_id,
+            type_name=f'Unknown Item {type_id}',
+            group_id=0,
+            group_name='Unknown',
+            category_id=0,
+            category_name='Unknown',
+            published=False
+        )
+        logger.warning(f"Создана заглушка для неизвестного типа предмета: {type_id}")
+        return item_type, True, False
 
 
 def get_asset_names(character, item_ids):
@@ -314,8 +384,8 @@ def render_traders(request):
                 # Получаем пороги алертов для main_character
                 from observer_assets_single.models import AlertThreshold
                 if main_character:
-                    alert_thresholds = {at.type_id_id: at.min_quantity for at in AlertThreshold.objects.filter(character=main_character)}
-                    logger.info(f"Main Character: {main_character.name} (ID: {main_character.character_id}), Порогов алертов: {len(alert_thresholds)}")
+                    alert_thresholds = {at.type_id_id: at.min_quantity for at in AlertThreshold.objects.filter(character=main_character, is_active=True)}
+                    logger.info(f"Main Character: {main_character.name} (ID: {main_character.character_id}), Активных порогов алертов: {len(alert_thresholds)}")
                 else:
                     alert_thresholds = {}
                     logger.info(f"Main character not found for user {user_id}, no alert thresholds")
@@ -490,6 +560,7 @@ def alert_settings(request):
             if form.is_valid():
                 type_id_obj = form.cleaned_data.get('type_id')
                 min_quantity = form.cleaned_data.get('min_quantity')
+                is_active = form.cleaned_data.get('is_active', True)
                 
                 # Проверяем, существует ли уже алерт для этого предмета
                 existing_threshold = AlertThreshold.objects.filter(
@@ -500,13 +571,15 @@ def alert_settings(request):
                 if existing_threshold:
                     # Если алерт уже существует - обновляем его
                     existing_threshold.min_quantity = min_quantity
+                    existing_threshold.is_active = is_active
                     existing_threshold.save()
                     messages.success(request, f'Порог алерта для "{type_id_obj.type_name}" успешно обновлен на {min_quantity}!')
                 else:
                     # Создаем новый алерт
                     threshold = form.save(commit=False)
                     threshold.character = main_character
-                    logger.info(f"Saving threshold: character={main_character.name}, type_id={threshold.type_id}, min_quantity={threshold.min_quantity}")
+                    threshold.is_active = is_active
+                    logger.info(f"Saving threshold: character={main_character.name}, type_id={threshold.type_id}, min_quantity={threshold.min_quantity}, is_active={threshold.is_active}")
                     threshold.save()
                     messages.success(request, 'Порог алерта успешно добавлен!')
                 return redirect('observer_assets_single:alert_settings')
@@ -520,8 +593,14 @@ def alert_settings(request):
     form.fields['type_id'].choices = [(item.type_id, item.type_name) for item in EveItemType.objects.all().order_by('type_name')]
     
     # Добавляем поля для редактирования/удаления существующих порогов
+    # Получаем фильтр из GET параметров
+    show_inactive = request.GET.get('show_inactive', 'true').lower() == 'true'
+    
     thresholds_list = []
     for at in existing_thresholds:
+        # Показываем все алерты по умолчанию, или только активные если show_inactive = false
+        if not at.is_active and not show_inactive:
+            continue
         thresholds_list.append({
             'id': at.id,
             'type_id': at.type_id_id,
@@ -529,6 +608,7 @@ def alert_settings(request):
             'group_name': at.type_id.group_name if at.type_id else '',
             'category_name': at.type_id.category_name if at.type_id else '',
             'min_quantity': at.min_quantity,
+            'is_active': at.is_active,
             'created_at': at.created_at,
         })
     
@@ -538,7 +618,35 @@ def alert_settings(request):
         'thresholds_list': thresholds_list,
         'existing_type_ids': existing_type_ids,
         'main_character': main_character,
+        'show_inactive': show_inactive,
     })
+
+
+def toggle_alert_active(request, threshold_id):
+    """Переключение статуса активности алерта"""
+    from authenticated.models import UserProfile
+    from observer_assets_single.models import AlertThreshold
+    
+    if request.method == 'POST' and request.user.is_authenticated:
+        try:
+            main_character = request.user.userprofile.main_character
+        except UserProfile.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'У вас нет основного персонажа'}, status=400)
+        
+        if not main_character:
+            return JsonResponse({'success': False, 'error': 'У вас нет основного персонажа'}, status=400)
+        
+        try:
+            threshold = AlertThreshold.objects.get(id=threshold_id, character=main_character)
+            threshold.is_active = not threshold.is_active
+            threshold.save()
+            return JsonResponse({'success': True, 'is_active': threshold.is_active})
+        except AlertThreshold.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Порог алерта не найден'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    
+    return JsonResponse({'success': False, 'error': 'Неверный запрос'}, status=400)
 
 
 def delete_threshold(request):
@@ -591,6 +699,7 @@ def edit_threshold(request):
         
         threshold_id = request.POST.get('threshold_id')
         min_quantity = request.POST.get('min_quantity')
+        is_active = request.POST.get('is_active') == 'on'
         
         try:
             # Валидация min_quantity
@@ -610,6 +719,7 @@ def edit_threshold(request):
             
             threshold = AlertThreshold.objects.get(id=threshold_id, character=main_character)
             threshold.min_quantity = min_quantity
+            threshold.is_active = is_active
             threshold.save()
             messages.success(request, 'Порог алерта успешно обновлен!')
         except AlertThreshold.DoesNotExist:
@@ -678,6 +788,29 @@ def parser_assets(assets, character):
         # Получаем тип предмета для последующего использования
         type_info = type_data.get(item['type_id'], {})
         
+        # Если тип не найден в batch-запросе, пробуем получить индивидуально через API
+        if not type_info:
+            try:
+                item_type_obj = EveItemType.objects.get(type_id=item['type_id'])
+                type_info = {
+                    'typeName': item_type_obj.type_name,
+                    'groupID': item_type_obj.group_id,
+                    'groupName': item_type_obj.group_name,
+                    'categoryID': item_type_obj.category_id,
+                    'categoryName': item_type_obj.category_name
+                }
+            except EveItemType.DoesNotExist:
+                # Тип не найден в БД и в batch-запросе - получаем через API
+                logger.info(f"Получение отсутствующего типа предмета {item['type_id']} через API")
+                item_type_obj, _ = get_or_create_item_type(item['type_id'])
+                type_info = {
+                    'typeName': item_type_obj.type_name,
+                    'groupID': item_type_obj.group_id,
+                    'groupName': item_type_obj.group_name,
+                    'categoryID': item_type_obj.category_id,
+                    'categoryName': item_type_obj.category_name
+                }
+        
         # Если это структура - получаем имя из response
         if item['location_type'] == 'structure':
             struct_data = structures_names.get(item['item_id'], {})
@@ -718,7 +851,8 @@ def parser_assets(assets, character):
         category_id = type_info.get('categoryID')
         category_name = type_info.get('categoryName', '')
         
-        item_type, _ = EveItemType.objects.update_or_create(
+        # Получаем или создаем тип предмета
+        item_type, _ = EveItemType.objects.get_or_create(
             type_id=item['type_id'],
             defaults={
                 'type_name': type_name,
@@ -792,7 +926,8 @@ def export_alerts(request):
         alerts_data.append({
             'type_id': threshold.type_id.type_id,
             'type_name': threshold.type_id.type_name,
-            'min_quantity': threshold.min_quantity
+            'min_quantity': threshold.min_quantity,
+            'is_active': threshold.is_active
         })
     
     # Создаем финальный объект с метаданными
@@ -952,14 +1087,19 @@ def import_alerts(request):
                         messages.warning(request, f'Алерт для предмета ID {type_id} пропущен: порог должен быть больше 0')
                         continue
                     
-                    # Проверяем существование типа предмета
-                    try:
-                        item_type = EveItemType.objects.get(type_id=type_id)
-                    except EveItemType.DoesNotExist:
-                        logger.warning(f"Тип предмета {type_id} не найден в базе, пропускаем")
-                        skipped_count += 1
-                        messages.warning(request, f'Алерт для предмета ID {type_id} пропущен: тип предмета не найден в базе')
-                        continue
+                    # Проверяем существование типа предмета и получаем из API если нужно
+                    item_type, item_created, has_asset = get_or_create_item_type(type_id, character=main_character)
+                    
+                    # Если предмет был создан (новый) и есть в ассетах - алерт активен
+                    # Если предмет уже существовал и есть в ассетах - алерт активен
+                    # Если предмета нет в ассетах - алерт отключён
+                    # Если заглушка создана (ошибка API) - алерт отключён
+                    if item_created and item_type.published == False:
+                        is_active = False  # Заглушка
+                    elif has_asset:
+                        is_active = True  # Предмет есть в ассетах
+                    else:
+                        is_active = False  # Предмета нет в ассетах
                     
                     # Проверяем существующий алерт
                     existing_threshold = AlertThreshold.objects.filter(
@@ -970,6 +1110,7 @@ def import_alerts(request):
                     if existing_threshold:
                         # Обновляем существующий
                         existing_threshold.min_quantity = min_quantity
+                        existing_threshold.is_active = is_active  # Сохраняем статус активности
                         existing_threshold.save()
                         updated_count += 1
                     else:
@@ -977,7 +1118,8 @@ def import_alerts(request):
                         AlertThreshold.objects.create(
                             character=main_character,
                             type_id=item_type,
-                            min_quantity=min_quantity
+                            min_quantity=min_quantity,
+                            is_active=is_active
                         )
                         imported_count += 1
                 

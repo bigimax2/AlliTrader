@@ -4,8 +4,8 @@ from .models import EveItemType, EveLocation, Asset, AlertThreshold
 
 @admin.register(AlertThreshold)
 class AlertThresholdAdmin(admin.ModelAdmin):
-    list_display = ('character', 'type_id', 'min_quantity', 'created_at')
-    list_filter = ('character', 'type_id')
+    list_display = ('character', 'type_id', 'min_quantity', 'is_active', 'created_at')
+    list_filter = ('character', 'type_id', 'is_active')
     search_fields = ('character__name', 'type_id__type_name')
     ordering = ('character', 'type_id')
 

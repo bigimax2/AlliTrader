@@ -126,6 +126,7 @@ class AlertThreshold(models.Model):
     min_quantity = models.PositiveIntegerField(null=False, blank=False, default=1, validators=[
         MinValueValidator(1, message='Порог алерта должен быть больше 0')
     ])
+    is_active = models.BooleanField(default=True, help_text="Активен ли алерт")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -141,4 +142,5 @@ class AlertThreshold(models.Model):
     def __str__(self):
         type_name = self.type_id.type_name if self.type_id else "Неизвестно"
         character_name = self.character.name if self.character else "Неизвестно"
-        return f"{character_name} - {type_name}: {self.min_quantity}"
+        status = "✓" if self.is_active else "✗"
+        return f"{status} {character_name} - {type_name}: {self.min_quantity}"
