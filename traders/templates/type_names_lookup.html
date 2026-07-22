@@ -1,13 +1,13 @@
 {% extends 'index.html' %}
 {% load static %}
 {% block content %}
-<div class="container-fluid px-4 py-3">
+<div class="container-fluid px-4 py-3 expand-container">
 
 
     <!-- Основной контент: левая часть (форма и таблица) и правая часть (для будущего контента) -->
     <div class="row">
         <!-- Левая колонка: форма и таблица результатов -->
-        <div class="col-lg-3 col-md-12 mb-4">
+        <div class="col-lg-3 col-md-12 mb-4 search-section">
             <div class="row">
                 <div class="col-12">
                     <div class="card card-theme mb-4">
@@ -155,12 +155,16 @@
         </div>
 
         <!-- Правая колонка: статистика цен -->
-        <div class="col-lg-9 col-md-12">
-            <div class="card card-theme h-100">
+        <div class="col-lg-9 col-md-12 table-section">
+            <div class="card card-theme h-100 table-expanded">
                 <div class="card-header card-header-theme">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="fas fa-chart-line"></i> Статистика цен</h5>
-                        <div class="form-group mb-0">
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary expand-toggle" id="expandToggle" title="Развернуть/Свернуть таблицу">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                            <div class="form-group mb-0">
                             {% if can_edit_coefficient %}
                             <form method="post" action="{% url 'traders:save_coefficient' %}" style="display: inline;">
                                 {% csrf_token %}
@@ -176,6 +180,7 @@
                             <label class="form-label form-label-theme mb-0">Коэффициент:</label>
                             <span class="badge bg-secondary fs-6">{{ coefficient }}</span>
                             {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -630,6 +635,78 @@
         display: inline-block;
         width: 12px;
     }
+    
+    /* Стили для развернутого состояния таблицы */
+    .expand-toggle {
+        transition: all 0.3s ease;
+    }
+    
+    .expand-container {
+        transition: all 0.3s ease;
+    }
+    
+    .search-section {
+        transition: all 0.3s ease;
+    }
+    
+    .table-section {
+        transition: all 0.3s ease;
+    }
+    
+    .search-section {
+        max-width: 25%;
+        flex: 0 0 auto;
+    }
+    
+    /* Скрытие бокового меню и навбара при раскрытии таблицы */
+    body.body-expanded #sidebar,
+    body.body-expanded .sidebar {
+        display: none !important;
+    }
+    
+    body.body-expanded .navbar-top {
+        display: none !important;
+    }
+    
+    /* Убираем отступ у main-content при раскрытии таблицы */
+    body.body-expanded .main-content {
+        margin-top: 0 !important;
+        margin-left: 0 !important;
+    }
+    
+    .expand-container.expanded-view .search-section {
+        width: 0;
+        min-width: 0;
+        flex: 0 0 0;
+        padding: 0;
+        margin: 0;
+        overflow: hidden;
+        opacity: 0;
+    }
+    
+    .expand-container.expanded-view .table-section {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+    
+    .expand-container.expanded-view .table-expanded table {
+        font-size: 0.75rem;
+    }
+    
+    .expand-container.expanded-view .table-expanded table th,
+    .expand-container.expanded-view .table-expanded table td {
+        padding: 0.25rem 0.35rem;
+    }
+    
+    .expand-container.expanded-view .table-expanded table thead th {
+        padding: 0.35rem 0.35rem;
+    }
+    
+    .expand-container.expanded-view .table-expanded .table-responsive {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: calc(100vh - 150px);
+    }
 </style>
 {% endblock page_styles %}
 
@@ -826,5 +903,89 @@ function restoreSortState() {
 //         restoreSortState();
 //     }
 // }, 500);
+
+// Логика развертывания/сворачивания таблицы
+let isExpanded = false;
+
+function toggleExpandView() {
+    const expandContainer = document.querySelector('.expand-container');
+    const body = document.body;
+    const expandToggleBtn = document.getElementById('expandToggle');
+    
+    if (!expandContainer || !expandToggleBtn) return;
+    
+    isExpanded = !isExpanded;
+    
+    if (isExpanded) {
+        // Разворачиваем таблицу
+        expandContainer.classList.add('expanded-view');
+        body.classList.add('body-expanded');
+        
+        // Меняем иконку кнопки
+        const icon = expandToggleBtn.querySelector('i');
+        if (icon) {
+            icon.className = 'fas fa-compress';
+        }
+    } else {
+        // Сворачиваем таблицу
+        expandContainer.classList.remove('expanded-view');
+        body.classList.remove('body-expanded');
+        
+        // Меняем иконку кнопки
+        const icon = expandToggleBtn.querySelector('i');
+        if (icon) {
+            icon.className = 'fas fa-expand';
+        }
+    }
+    
+    // Сохраняем состояние в localStorage
+    localStorage.setItem('type_names_lookup_expanded', isExpanded);
+}
+
+function restoreExpandState() {
+    const savedState = localStorage.getItem('type_names_lookup_expanded');
+    const expandContainer = document.querySelector('.expand-container');
+    const body = document.body;
+    const expandToggleBtn = document.getElementById('expandToggle');
+    
+    if (!expandContainer || !expandToggleBtn) return;
+    
+    if (savedState === 'true') {
+        isExpanded = true;
+        expandContainer.classList.add('expanded-view');
+        body.classList.add('body-expanded');
+        
+        // Меняем иконку кнопки
+        const icon = expandToggleBtn.querySelector('i');
+        if (icon) {
+            icon.className = 'fas fa-compress';
+        }
+    } else {
+        isExpanded = false;
+        expandContainer.classList.remove('expanded-view');
+        body.classList.remove('body-expanded');
+        
+        // Меняем иконку кнопки
+        const icon = expandToggleBtn.querySelector('i');
+        if (icon) {
+            icon.className = 'fas fa-expand';
+        }
+    }
+}
+
+// Инициализация при загрузке страницы
+window.addEventListener('load', function() {
+    // Восстанавливаем состояние сортировки
+    restoreSortState();
+    
+    // Восстанавливаем состояние развертывания
+    restoreExpandState();
+    
+    // Добавляем обработчик клика на кнопку
+    const expandToggleBtn = document.getElementById('expandToggle');
+    if (expandToggleBtn) {
+        expandToggleBtn.addEventListener('click', toggleExpandView);
+    }
+});
 </script>
 {% endblock page_scripts %}

@@ -15,7 +15,8 @@ def get_prices():
     from .models import TypeSearchResult
     eveonline_config = apps.get_app_config('eveonline')
     esi = eveonline_config.esi
-    type_search = TypeSearchResult.objects.all()
+    # Фильтруем TypeSearchResult по наличию связанных персонажей
+    type_search = TypeSearchResult.objects.filter(character__isnull=False).distinct()
     regions = [
         regions_systems_ids.DOMAIN,
         regions_systems_ids.METROPOLIS,
