@@ -259,6 +259,15 @@
 
 {% block page_styles %}
 <style>
+    /* Определение CSS переменных для аккордеона */
+    :root {
+        --accordion-bg: #e9ecef;
+    }
+    
+    [data-theme="dark"] {
+        --accordion-bg: rgba(13, 110, 253, 0.2);
+    }
+    
     /* Стили для формы поиска */
     [data-theme="light"] .card-theme {
         background-color: #ffffff;
@@ -552,7 +561,7 @@
     
     /* Стили для аккордеона */
     .accordion {
-        --bs-accordion-bg: transparent;
+        /* Используем --accordion-bg вместо --bs-accordion-bg */
     }
     
     .accordion-button {
