@@ -181,7 +181,40 @@
                             <span class="badge bg-secondary fs-6">{{ coefficient }}</span>
                             {% endif %}
                             </div>
+                            <!-- Кнопка переключения видимости колонок -->
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleColumnsBtn" title="Показать/скрыть колонки">
+                                <i class="fas fa-columns"></i>
+                            </button>
                         </div>
+                    </div>
+                </div>
+                <!-- Панель управления видимостью колонок -->
+                <div class="card-header card-header-theme column-toggle-panel" id="columnTogglePanel" style="display: none; padding: 0.5rem 1rem;">
+                    <div class="d-flex flex-wrap gap-3 align-items-center">
+                        <span class="form-label form-label-theme mb-0 me-2">Показать колонки:</span>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input column-toggle" type="checkbox" data-column="amarr" checked id="toggleAmarr">
+                            <label class="form-check-label" for="toggleAmarr">Amarr</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input column-toggle" type="checkbox" data-column="hek" checked id="toggleHek">
+                            <label class="form-check-label" for="toggleHek">Hek</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input column-toggle" type="checkbox" data-column="dodixie" checked id="toggleDodixie">
+                            <label class="form-check-label" for="toggleDodixie">Dodixie</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input column-toggle" type="checkbox" data-column="rens" checked id="toggleRens">
+                            <label class="form-check-label" for="toggleRens">Rens</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input column-toggle" type="checkbox" data-column="jita" checked id="toggleJita">
+                            <label class="form-check-label" for="toggleJita">Jita</label>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-success" id="resetColumnsBtn">
+                            <i class="fas fa-undo"></i>
+                        </button>
                     </div>
                 </div>
                 <div class="card-body card-body-theme">
@@ -196,18 +229,18 @@
                                     <th rowspan="2" class="text-center border-edges_name sortable-column" data-sort="name" data-order="asc">
                                         Название <span class="sort-arrow">↑</span>
                                     </th>
-                                    <th colspan="1" class="text-center border-edges border-amarr">Amarr</th>
-                                    <th colspan="1" class="text-center border-edges border-hek">Hek</th>
-                                    <th colspan="1" class="text-center border-edges border-dodixie">Dodixie</th>
-                                    <th colspan="1" class="text-center border-edges border-rens">Rens</th>
-                                    <th colspan="1" class="text-center border-edges border-jita">Jita</th>
+                                    <th colspan="1" class="text-center border-edges border-amarr" data-column="amarr">Amarr</th>
+                                    <th colspan="1" class="text-center border-edges border-hek" data-column="hek">Hek</th>
+                                    <th colspan="1" class="text-center border-edges border-dodixie" data-column="dodixie">Dodixie</th>
+                                    <th colspan="1" class="text-center border-edges border-rens" data-column="rens">Rens</th>
+                                    <th colspan="1" class="text-center border-edges border-jita" data-column="jita">Jita</th>
                                 </tr>
                                 <tr>
-                                    <th class="text-center border-edges border-sell">Min Sell</th>
-                                    <th class="text-center border-edges border-sell">Min Sell</th>
-                                    <th class="text-center border-edges border-sell">Min Sell</th>
-                                    <th class="text-center border-edges border-sell">Min Sell</th>
-                                    <th class="text-center border-edges border-buy">Max Buy</th>
+                                    <th class="text-center border-edges border-sell" data-column="amarr">Min Sell</th>
+                                    <th class="text-center border-edges border-sell" data-column="hek">Min Sell</th>
+                                    <th class="text-center border-edges border-sell" data-column="dodixie">Min Sell</th>
+                                    <th class="text-center border-edges border-sell" data-column="rens">Min Sell</th>
+                                    <th class="text-center border-edges border-buy" data-column="jita">Max Buy</th>
 
                                 </tr>
                             </thead>
@@ -216,33 +249,33 @@
                              {% for type in type_names_save %}
                                  <!-- DEBUG: Rendering type {{ forloop.counter }}/{{ type_names_save|length }} - type_id={{ type.type_id }} -->
                                  <tr>
-                                 <td class="text-center">{{ type.type_id }}<!-- DEBUG: type_id={{ type.type_id }}, type_name={{ type.type_name }}--></td>
-                                 <td class="text-center">{{ type.type_name }}</td>
+                                 <td class="text-center" data-column="id">{{ type.type_id }}<!-- DEBUG: type_id={{ type.type_id }}, type_name={{ type.type_name }}--></td>
+                                 <td class="text-center" data-column="name">{{ type.type_name }}</td>
                                  {# Amarr #}
                                  {% if type.computed_prices.has_profit.amarr %}
-                                 <td class="text-center" style="background-color:#d2a25d">{{ type.computed_prices.minsellamarr|default:"-" }}</td>
+                                 <td class="text-center" data-column="amarr" style="background-color:#d2a25d">{{ type.computed_prices.minsellamarr|default:"-" }}</td>
                                  {% else %}
-                                     <td class="text-center">{{ type.computed_prices.minsellamarr|default:"-" }}</td>
+                                     <td class="text-center" data-column="amarr">{{ type.computed_prices.minsellamarr|default:"-" }}</td>
                                  {% endif %}
                                  {# Hek #}
                                  {% if type.computed_prices.has_profit.hek %}
-                                 <td class="text-center" style="background-color:#d2a25d">{{ type.computed_prices.minsellhek|default:"-" }}</td>
+                                 <td class="text-center" data-column="hek" style="background-color:#d2a25d">{{ type.computed_prices.minsellhek|default:"-" }}</td>
                                  {% else %}
-                                     <td class="text-center">{{ type.computed_prices.minsellhek|default:"-" }}</td>
+                                     <td class="text-center" data-column="hek">{{ type.computed_prices.minsellhek|default:"-" }}</td>
                                  {% endif %}
                                  {# Dodixie #}
                                  {% if type.computed_prices.has_profit.dodixie %}
-                                 <td class="text-center" style="background-color:#d2a25d">{{ type.computed_prices.minselldodixie|default:"-" }}</td>
+                                 <td class="text-center" data-column="dodixie" style="background-color:#d2a25d">{{ type.computed_prices.minselldodixie|default:"-" }}</td>
                                  {% else %}
-                                     <td class="text-center">{{ type.computed_prices.minselldodixie|default:"-" }}</td>
+                                     <td class="text-center" data-column="dodixie">{{ type.computed_prices.minselldodixie|default:"-" }}</td>
                                  {% endif %}
                                  {# Rens #}
                                  {% if type.computed_prices.has_profit.rens %}
-                                 <td class="text-center" style="background-color:#d2a25d">{{ type.computed_prices.minsellrens|default:"-" }}</td>
+                                 <td class="text-center" data-column="rens" style="background-color:#d2a25d">{{ type.computed_prices.minsellrens|default:"-" }}</td>
                                  {% else %}
-                                     <td class="text-center">{{ type.computed_prices.minsellrens|default:"-" }}</td>
+                                     <td class="text-center" data-column="rens">{{ type.computed_prices.minsellrens|default:"-" }}</td>
                                  {% endif %}
-                                 <td class="text-center">{{ type.computed_prices.maxbuyjita|default:"-" }}</td>
+                                 <td class="text-center" data-column="jita">{{ type.computed_prices.maxbuyjita|default:"-" }}</td>
                                  </tr>
                              {% endfor %}
 
@@ -650,6 +683,39 @@
         transition: all 0.3s ease;
     }
     
+    /* Стили для скрытия колонок */
+    .hide-column-amarr,
+    .hide-column-hek,
+    .hide-column-dodixie,
+    .hide-column-rens,
+    .hide-column-jita {
+        display: none !important;
+    }
+    
+    .column-toggle-panel {
+        border-top: 1px solid rgba(13, 110, 253, 0.3);
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+    
+    [data-theme="light"] .column-toggle-panel {
+        background-color: #e7f1ff;
+        border-top-color: rgba(13, 110, 253, 0.3);
+    }
+    
+    [data-theme="dark"] .column-toggle-panel {
+        background-color: rgba(13, 110, 253, 0.1);
+        border-top-color: rgba(13, 110, 253, 0.5);
+    }
+    
+    .column-toggle-panel .form-check-label {
+        cursor: pointer;
+        margin-bottom: 0;
+    }
+    
+    .column-toggle-panel .form-check-input {
+        cursor: pointer;
+    }
+    
     .expand-container {
         transition: all 0.3s ease;
     }
@@ -902,6 +968,55 @@ function restoreSortState() {
     }
 }
 
+// Сохранение состояния видимости колонок в localStorage
+function saveColumnVisibility() {
+    const visibilityState = {};
+    const columnToggles = document.querySelectorAll('.column-toggle');
+    columnToggles.forEach(toggle => {
+        visibilityState[toggle.dataset.column] = toggle.checked;
+    });
+    localStorage.setItem('type_names_lookup_column_visibility', JSON.stringify(visibilityState));
+}
+
+// Восстановление состояния видимости колонок при загрузке
+function restoreColumnVisibility() {
+    const savedState = localStorage.getItem('type_names_lookup_column_visibility');
+    if (savedState) {
+        const visibilityState = JSON.parse(savedState);
+        const columnToggles = document.querySelectorAll('.column-toggle');
+        columnToggles.forEach(toggle => {
+            const isVisible = visibilityState[toggle.dataset.column] !== undefined ? visibilityState[toggle.dataset.column] : true;
+            toggle.checked = isVisible;
+            updateColumnVisibility(toggle.dataset.column, isVisible);
+        });
+    }
+}
+
+// Обновление видимости колонки
+function updateColumnVisibility(columnName, isVisible) {
+    const table = document.querySelector('.col-lg-9 .card-body.card-body-theme table');
+    if (!table) return;
+    
+    const theadRows = table.querySelectorAll('thead tr');
+    const tbodyRows = table.querySelectorAll('tbody tr');
+    
+    // Получаем все ячейки с этим data-column
+    const headerCells = table.querySelectorAll(`th[data-column="${columnName}"]`);
+    const bodyCells = table.querySelectorAll(`td[data-column="${columnName}"]`);
+    
+    const className = `hide-column-${columnName}`;
+    
+    if (isVisible) {
+        // Показать колонку
+        headerCells.forEach(cell => cell.classList.remove(className));
+        bodyCells.forEach(cell => cell.classList.remove(className));
+    } else {
+        // Скрыть колонку
+        headerCells.forEach(cell => cell.classList.add(className));
+        bodyCells.forEach(cell => cell.classList.add(className));
+    }
+}
+
 // Выполняем восстановление при загрузке страницы
 // (если данные в таблице уже есть)
 // Убрали автоматическое восстановление сортировки, будет восстанавливаться только при клике
@@ -990,10 +1105,49 @@ window.addEventListener('load', function() {
     // Восстанавливаем состояние развертывания
     restoreExpandState();
     
+    // Восстанавливаем состояние видимости колонок
+    restoreColumnVisibility();
+    
     // Добавляем обработчик клика на кнопку
     const expandToggleBtn = document.getElementById('expandToggle');
     if (expandToggleBtn) {
         expandToggleBtn.addEventListener('click', toggleExpandView);
+    }
+    
+    // Добавляем обработчик клика на кнопку переключения колонок
+    const toggleColumnsBtn = document.getElementById('toggleColumnsBtn');
+    const columnTogglePanel = document.getElementById('columnTogglePanel');
+    if (toggleColumnsBtn && columnTogglePanel) {
+        toggleColumnsBtn.addEventListener('click', function() {
+            const isHidden = columnTogglePanel.style.display === 'none' || columnTogglePanel.style.display === '';
+            if (isHidden) {
+                columnTogglePanel.style.display = 'block';
+            } else {
+                columnTogglePanel.style.display = 'none';
+            }
+        });
+    }
+    
+    // Добавляем обработчики для чекбоксов колонок
+    const columnToggles = document.querySelectorAll('.column-toggle');
+    columnToggles.forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            updateColumnVisibility(this.dataset.column, this.checked);
+            saveColumnVisibility();
+        });
+    });
+    
+    // Добавляем обработчик для кнопки сброса
+    const resetColumnsBtn = document.getElementById('resetColumnsBtn');
+    if (resetColumnsBtn) {
+        resetColumnsBtn.addEventListener('click', function() {
+            const columnToggles = document.querySelectorAll('.column-toggle');
+            columnToggles.forEach(toggle => {
+                toggle.checked = true;
+                updateColumnVisibility(toggle.dataset.column, true);
+            });
+            saveColumnVisibility();
+        });
     }
 });
 </script>
