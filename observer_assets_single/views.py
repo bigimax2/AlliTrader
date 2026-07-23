@@ -270,7 +270,7 @@ def build_location_hierarchy(assets, character, alert_thresholds):
             
             container_groups[item_id] = {
                 'name': container_name,
-                'assets': container_assets_map[item_id],
+                'assets': sorted(container_assets_map[item_id], key=lambda x: x.type_id.type_name if x.type_id else ""),
                 'category_name': category_name
             }
             logger.info(f"Found container: item_id={item_id}, name={container_name}, category_name={category_name}")
@@ -281,6 +281,13 @@ def build_location_hierarchy(assets, character, alert_thresholds):
             # Это ассет на открытом пространстве
             open_assets.append(asset)
             logger.info(f"Open asset: item_id={item_id}, type_id={asset.type_id.type_id}, category_name={category_name}, alert_level={getattr(asset, 'alert_level', 'NOT SET')}")
+    
+    # Сортируем открытые ассеты по алфавиту
+    open_assets = sorted(open_assets, key=lambda x: x.type_id.type_name if x.type_id else "")
+    
+    # Сортируем container_groups по алфавиту имен контейнеров
+    sorted_container_groups = dict(sorted(container_groups.items(), key=lambda x: x[1]['name']))
+    container_groups = sorted_container_groups
     
     return {'open_assets': open_assets, 'container_groups': container_groups}
 
@@ -369,7 +376,8 @@ def render_traders(request):
                     if real_group_names:
                         assets = assets.filter(type_id__group_name__in=real_group_names)
                 
-                assets = assets.order_by('character__name', 'location__location_id', 'type_id')
+                # Сортируем ассеты по алфавиту: персонаж, локация, тип предмета
+                assets = assets.order_by('character__name', 'location__location_name', 'type_id__type_name')
                 
                 # Загружаем пороги алертов для main_character пользователя
                 from authenticated.models import UserProfile
