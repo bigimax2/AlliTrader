@@ -69,6 +69,7 @@ def user_app_access(request):
     return {
         'user_app_labels': app_labels,
         'user_apps': user_apps,
+        'user': request.user if request.user.is_authenticated else None,
     }
 
 def notification_counters(request):

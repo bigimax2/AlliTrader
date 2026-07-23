@@ -34,4 +34,5 @@ def get_img_main_personage(context):
         'mail_labels': mail_labels,
         'unread_messages_count': unread_messages_count,
         'latest_messages': latest_messages,
+        'user': user,
     }

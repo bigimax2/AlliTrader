@@ -170,7 +170,7 @@ def build_location_hierarchy(assets, character, alert_thresholds, alert_level_fi
 
             container_groups[item_id] = {
                 'name': container_name,
-                'assets': container_assets_map[item_id],
+                'assets': sorted(container_assets_map[item_id], key=lambda x: x.type_id.type_name if x.type_id else ""),
                 'category_name': category_name
             }
             logger.info(f"Found container: item_id={item_id}, name={container_name}, category_name={category_name}")
@@ -183,6 +183,13 @@ def build_location_hierarchy(assets, character, alert_thresholds, alert_level_fi
             open_assets.append(asset)
             logger.info(
                 f"Open asset: item_id={item_id}, type_id={asset.type_id.type_id}, category_name={category_name}, alert_level={getattr(asset, 'alert_level', 'NOT SET')}")
+
+    # Сортируем открытые ассеты по алфавиту
+    open_assets = sorted(open_assets, key=lambda x: x.type_id.type_name if x.type_id else "")
+    
+    # Сортируем container_groups по алфавиту имен контейнеров
+    sorted_container_groups = dict(sorted(container_groups.items(), key=lambda x: x[1]['name']))
+    container_groups = sorted_container_groups
 
     # Фильтруем результаты по alert_level_filter, если задан
     if alert_level_filter:
@@ -374,6 +381,14 @@ def assets_overview(request):
                             logger.info(f"Построена иерархия для персонажа {character_name}, локации {location_name}")
 
                     logger.info(f"Строено иерархий для персонажей: {len(location_data)}")
+                    
+                    # Сортируем локации по алфавиту для каждого персонажа
+                    sorted_location_data = {}
+                    for character_name in sorted(location_data.keys()):
+                        sorted_location_data[character_name] = {}
+                        for location_name in sorted(location_data[character_name].keys()):
+                            sorted_location_data[character_name][location_name] = location_data[character_name][location_name]
+                    location_data = sorted_location_data
 
                     # Собираем все пороги алертов для всех персонажей в один словарь для передачи в шаблон
                     # Если есть ассеты, объединяем пороги всех персонажей
