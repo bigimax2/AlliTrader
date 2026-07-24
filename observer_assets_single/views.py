@@ -896,9 +896,44 @@ def parser_assets(assets, character):
         )
         
         current_item_ids.add(item['item_id'])
+        
+        # Активируем алерт, если предмет вернулся (был деактивирован при удалении)
+        if not created:
+            from observer_assets_single.models import AlertThreshold
+            try:
+                alert = AlertThreshold.objects.get(
+                    character=character,
+                    type_id=item_type,
+                    is_active=False
+                )
+                alert.is_active = True
+                alert.save()
+                logger.info(f"Алерт активирован для предмета '{item_type.type_name}' (type_id={item_type.type_id}) - предмет вернулся в ассеты")
+            except AlertThreshold.DoesNotExist:
+                pass  # Алерта нет - не активируем
     
     # Удаляем активы, которые больше не пришли из API (кончились или переместились)
-    Asset.objects.filter(character=character).exclude(item_id__in=current_item_ids).delete()
+    # Сначала получаем ID типов предметов, которые будут удалены
+    deleted_assets = Asset.objects.filter(character=character).exclude(item_id__in=current_item_ids)
+    deleted_type_ids = list(deleted_assets.values_list('type_id', flat=True).distinct())
+    deleted_item_ids = list(deleted_assets.values_list('item_id', flat=True))
+    
+    # Удаляем ассеты
+    deleted_count = deleted_assets.count()
+    deleted_assets.delete()
+    
+    # Деактивируем алерты для удалённых предметов
+    if deleted_type_ids:
+        from observer_assets_single.models import AlertThreshold
+        deactivated_count = AlertThreshold.objects.filter(
+            character=character,
+            type_id__in=deleted_type_ids
+        ).update(is_active=False)
+        
+        logger.info(f"Удалено {deleted_count} ассетов, деактивировано {deactivated_count} алертов для персонажа {character.name}")
+        for type_id in deleted_type_ids:
+            type_name = EveItemType.objects.get(type_id=type_id).type_name if EveItemType.objects.filter(type_id=type_id).exists() else f"Type ID {type_id}"
+            logger.info(f"  - Предмет '{type_name}' (type_id={type_id}) удалён, алерт деактивирован")
     
     return Asset.objects.filter(character=character).count()
 
