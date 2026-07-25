@@ -33,6 +33,16 @@
                                         <i class="fas fa-info-circle"></i> При достижении этого количества предметов будет показан алерт. Красный: ≤ 25% от порога, Жёлтый: ≤ 50% от порога. <strong>Обязательно больше 0.</strong>
                                     </small>
                                 </div>
+                                <div class="mb-3">
+                                    {{ form.location.errors }}
+                                    <label for="{{ form.location.id_for_label }}" class="form-label form-label-theme">
+                                        {{ form.location.label }}
+                                    </label>
+                                    {{ form.location }}
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle"></i> Выберите локацию для алерта (оставьте пустым - алерт будет проигнорирован)
+                                    </small>
+                                </div>
                                 <button type="submit" class="btn btn-success btn-theme">
                                     <i class="fas fa-save"></i> Сохранить порог
                                 </button>
@@ -62,6 +72,7 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th>Предмет</th>
+                                            <th>Локация</th>
                                             <th>Группа</th>
                                             <th>Категория</th>
                                             <th>Мин. кол-во</th>
@@ -71,8 +82,9 @@
                                     </thead>
                                     <tbody>
                                         {% for threshold in thresholds_list %}
-                                        <tr id="threshold-{{ threshold.id }}" class="{% if not threshold.is_active %}table-secondary{% endif %}">
+                                        <tr id="threshold-{{ threshold.id }}" class="{% if not threshold.is_active %}table-secondary{% endif %} {% if threshold.min_quantity == 0 %}table-danger{% endif %}">
                                             <td>{{ threshold.type_name }}</td>
+                                            <td>{{ threshold.location_name }}</td>
                                             <td>{{ threshold.group_name|default:"-" }}</td>
                                             <td>{{ threshold.category_name|default:"-" }}</td>
                                             <td id="quantity-{{ threshold.id }}">{{ threshold.min_quantity }}</td>
@@ -85,7 +97,7 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <button type="button" class="btn btn-sm btn-primary btn-theme edit-threshold" data-threshold-id="{{ threshold.id }}" data-threshold-quantity="{{ threshold.min_quantity }}" data-threshold-name="{{ threshold.type_name|escapejs }}" data-threshold-active="{{ threshold.is_active }}" data-bs-toggle="modal" data-bs-target="#editModal">
+                                                <button type="button" class="btn btn-sm btn-primary btn-theme edit-threshold" data-threshold-id="{{ threshold.id }}" data-threshold-quantity="{{ threshold.min_quantity }}" data-threshold-name="{{ threshold.type_name|escapejs }}" data-threshold-active="{{ threshold.is_active }}" data-threshold-location="{{ threshold.location_id|default:'' }}" data-bs-toggle="modal" data-bs-target="#editModal">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
                                                 <form method="post" action="{% url 'observer_assets_single:delete_threshold' %}" style="display: inline;" onsubmit="return confirm('Вы уверены, что хотите удалить этот порог?');">
@@ -128,10 +140,16 @@
                     <div class="modal-body">
                         <input type="hidden" name="threshold_id" id="edit_threshold_id">
                         <div class="mb-3">
-                            <label for="edit_min_quantity" class="form-label form-label-theme">
+                            <label for="edit_type_name" class="form-label form-label-theme">
                                 <i class="fas fa-cube"></i> Предмет
                             </label>
                             <input type="text" class="form-control" id="edit_type_name" disabled>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_location" class="form-label form-label-theme">
+                                <i class="fas fa-map-marker-alt"></i> Локация
+                            </label>
+                            <input type="text" class="form-control" id="edit_location" disabled>
                         </div>
                         <div class="mb-3">
                             <label for="edit_min_quantity" class="form-label form-label-theme">
@@ -174,12 +192,21 @@
                         <li><strong>Желтый цвет (warning):</strong> количество предметов меньше или равно 50% от порога</li>
                         <li><strong>Нормальный цвет:</strong> количество больше 50% от порога</li>
                     </ul>
-                    <p>Например, если вы установили порог 100 для предмета:</p>
+                    <p><strong>Как работают алерты с привязкой к локации:</strong></p>
                     <ul>
-                        <li>Количество ≤ 25 - красный цвет (critical)</li>
-                        <li>Количество ≤ 50 - желтый цвет (warning)</li>
-                        <li>Количество 51-100 - желтый цвет (warning, близко к порогу)</li>
-                        <li>Количество 101+ - нормальный цвет</li>
+                        <li><strong>Локально-привязанный алерт:</strong> работает только для конкретной локации. Итемы в других локациях будут без окраски.</li>
+                        <li><strong>Итем исчез из локации:</strong> порог алерта меняется на 0, алерт остается активным, чтобы вы знали, что предмета нет</li>
+                        <li><strong>Итем вернулся в локацию:</strong> порог алерта восстанавливается на 1 (минимальное значение), алерт остается активным</li>
+                        <li><strong>Алерт без локации:</strong> игнорируется (не применяется ни к каким итемам)</li>
+                    </ul>
+                    <p><strong>Пример:</strong></p>
+                    <ul>
+                        <li>Вы установили алерт: "Предмет X, 100 шт., Станция А"</li>
+                        <li>Итемы предмета X на "Станции А" с количеством ≤ 25 - красный цвет</li>
+                        <li>Итемы предмета X на "Станции А" с количеством ≤ 50 - желтый цвет</li>
+                        <li>Предмет X исчез с "Станции А" - порог алерта меняется на 0, алерт остается активным</li>
+                        <li>Предмет X вернулся на "Станцию А" - порог алерта восстанавливается на 1</li>
+                        <li>Итемы предмета X на "Станции Б" - без окраски (алерт привязан только к "Станции А")</li>
                     </ul>
                     <p><strong>Важно:</strong> порог алерта должен быть больше 0.</p>
                 </div>
@@ -288,15 +315,18 @@ $(document).ready(function($) {
         var thresholdQuantity = button.data('threshold-quantity');
         var typeName = button.data('threshold-name');
         var thresholdActive = button.data('threshold-active');
+        var locationName = button.data('threshold-location') || 'Все локации';
         
         console.log('Threshold ID:', thresholdId);
         console.log('Threshold Quantity:', thresholdQuantity);
         console.log('Type Name:', typeName);
         console.log('Threshold Active:', thresholdActive);
+        console.log('Location Name:', locationName);
         
         var modal = $(this);
         modal.find('#edit_threshold_id').val(thresholdId);
         modal.find('#edit_type_name').val(typeName);
+        modal.find('#edit_location').val(locationName);
         modal.find('#edit_min_quantity').val(thresholdQuantity);
         
         // Устанавливаем состояние чекбокса is_active

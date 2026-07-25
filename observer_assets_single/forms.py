@@ -218,63 +218,31 @@ class LocationSelectForm(forms.Form):
 
 class AlertThresholdForm(forms.ModelForm):
     """Форма для настройки порогов алертов"""
-    type_id = forms.ChoiceField(
-        label='Предмет',
-        required=True,
-        widget=forms.Select(attrs={'class': 'form-select select2-search', 'style': 'width: 100%;'}),
-        help_text='Выберите предмет из списка'
-    )
-    is_active = forms.BooleanField(required=False, initial=True, label="Активен", help_text="Если отключить, алерт не будет отображаться в таблице ассетов")
-    
     class Meta:
         model = AlertThreshold
-        fields = ['min_quantity', 'is_active']
+        fields = ['type_id', 'location', 'min_quantity', 'is_active']
         widgets = {
-            'min_quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'type_id': forms.Select(attrs={'class': 'form-select select2-search', 'style': 'width: 100%;'}),
+            'min_quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
         }
         labels = {
+            'type_id': 'Предмет',
+            'location': 'Локация',
             'min_quantity': 'Минимальное количество',
+        }
+        help_texts = {
+            'type_id': 'Выберите предмет из списка',
+            'location': 'Выберите локацию для алерта (или оставьте пустым для всех локаций)',
         }
     
     def __init__(self, *args, **kwargs):
-        # user не нужен, так как character устанавливается в views.py
         super().__init__(*args, **kwargs)
         # Заполняем список предметов
-        self.fields['type_id'].choices = [(item.type_id, item.type_name) for item in EveItemType.objects.all().order_by('type_name')]
+        self.fields['type_id'].queryset = EveItemType.objects.all().order_by('type_name')
+        # Заполняем список локаций
+        self.fields['location'].queryset = EveLocation.objects.filter(location_type='station').order_by('location_name')
         
-        # Если форма используется для редактирования, скрываем поле type_id
+        # Если форма используется для редактирования, скрываем поле type_id и location
         if self.instance and self.instance.pk:
-            # Сохраняем текущие атрибуты виджета
-            current_attrs = self.fields['type_id'].widget.attrs.copy()
             self.fields['type_id'].widget = forms.HiddenInput()
-            # Восстанавливаем атрибуты для скрытого поля (если нужно)
-            self.fields['type_id'].widget.attrs.update(current_attrs)
-    
-    def clean_type_id(self):
-        """Валидация выбора предмета"""
-        type_id = self.cleaned_data.get('type_id')
-        if not type_id or type_id == '':
-            raise forms.ValidationError('Пожалуйста, выберите предмет из списка')
-        try:
-            return EveItemType.objects.get(type_id=type_id)
-        except EveItemType.DoesNotExist:
-            raise forms.ValidationError('Выбранный предмет не найден')
-    
-    def clean_min_quantity(self):
-        """Валидация порога алерта"""
-        min_quantity = self.cleaned_data.get('min_quantity')
-        if min_quantity is not None and min_quantity <= 0:
-            raise forms.ValidationError('Порог алерта должен быть больше 0')
-        return min_quantity
-    
-    def save(self, commit=True):
-        """Сохранение с правильным type_id и character"""
-        instance = super().save(commit=False)
-        type_id = self.cleaned_data.get('type_id')
-        if isinstance(type_id, EveItemType):
-            instance.type_id = type_id
-        elif type_id:
-            instance.type_id = EveItemType.objects.get(type_id=type_id)
-        if commit:
-            instance.save()
-        return instance
+            self.fields['location'].widget = forms.HiddenInput()

@@ -146,7 +146,7 @@ def get_asset_names(character, item_ids):
         return {}
 
 
-def build_location_hierarchy(assets, character, alert_thresholds):
+def build_location_hierarchy(assets, character, alert_thresholds_by_location):
     """
     Построение иерархии ассетов внутри локации для отображения с аккордеоном.
     
@@ -156,7 +156,7 @@ def build_location_hierarchy(assets, character, alert_thresholds):
     Args:
         assets: queryset ассетов для одной локации
         character: Объект EveCharacter
-        alert_thresholds: словарь {type_id: min_quantity} для алертов
+        alert_thresholds_by_location: словарь {type_id: {location_id: min_quantity}} для локально-привязанных алертов
     
     Returns:
         Словарь с двумя ключами:
@@ -233,9 +233,15 @@ def build_location_hierarchy(assets, character, alert_thresholds):
         for asset in assets_list:
             type_id = asset.type_id.type_id
             qty = int(asset.quantity)
+            location_id = asset.location.location_id if asset.location else None
             
-            # Ищем порог для этого type_id
-            threshold = alert_thresholds.get(type_id)
+            # Ищем порог для этого type_id с учетом локации (только локально-привязанные алерты)
+            threshold = None
+            if type_id in alert_thresholds_by_location:
+                if location_id in alert_thresholds_by_location[type_id]:
+                    threshold = alert_thresholds_by_location[type_id][location_id]
+                    logger.info(f"Container asset (loc-specific): item_id={asset.item_id}, type_id={type_id}, quantity={qty}, location_id={location_id}, threshold={threshold}")
+            
             if threshold is not None:
                 thresh = int(threshold)
                 critical_threshold = thresh * 0.25
@@ -255,7 +261,7 @@ def build_location_hierarchy(assets, character, alert_thresholds):
                     logger.info(f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=None")
             else:
                 asset.alert_level = None
-                logger.info(f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, no threshold found")
+                logger.info(f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, no threshold found - no coloring")
     
     # Затем обрабатываем исходные ассеты
     for asset in assets:
@@ -392,32 +398,58 @@ def render_traders(request):
                 # Получаем пороги алертов для main_character
                 from observer_assets_single.models import AlertThreshold
                 if main_character:
-                    alert_thresholds = {at.type_id_id: at.min_quantity for at in AlertThreshold.objects.filter(character=main_character, is_active=True)}
-                    logger.info(f"Main Character: {main_character.name} (ID: {main_character.character_id}), Активных порогов алертов: {len(alert_thresholds)}")
+                    # Получаем все алерты для main_character
+                    all_alert_thresholds = AlertThreshold.objects.filter(character=main_character, is_active=True)
+                    
+                    # Создаем словарь для быстрого доступа: {type_id: {location_id: min_quantity}}
+                    alert_thresholds_by_location = {}
+                    
+                    for at in all_alert_thresholds:
+                        type_id = at.type_id_id
+                        if at.location:
+                            # Алерт для конкретной локации
+                            if type_id not in alert_thresholds_by_location:
+                                alert_thresholds_by_location[type_id] = {}
+                            alert_thresholds_by_location[type_id][at.location_id] = at.min_quantity
+                            logger.info(f"Алерт с привязкой к локации: type_id={type_id}, location_id={at.location_id}, min_quantity={at.min_quantity}")
+                        else:
+                            # Глобальный алерт (без привязки к локации) - игнорируем
+                            logger.info(f"Глобальный алерт игнорируется (только локально-привязанные): type_id={type_id}, min_quantity={at.min_quantity}")
+                    
+                    logger.info(f"Main Character: {main_character.name} (ID: {main_character.character_id})")
+                    logger.info(f"Локально-привязанных порогов: {len(alert_thresholds_by_location)} type_ids")
                 else:
-                    alert_thresholds = {}
+                    alert_thresholds_by_location = {}
                     logger.info(f"Main character not found for user {user_id}, no alert thresholds")
                 
-                logger.info(f"Пороги: {alert_thresholds}")
+                logger.info(f"Локальные пороги: {alert_thresholds_by_location}")
                 
                 # Добавляем информацию о низком количестве
                 for asset in assets:
-                    # Используем asset.type_id.type_id, так как type_id - это ForeignKey объект
-                    threshold = alert_thresholds.get(asset.type_id.type_id)
+                    type_id = asset.type_id.type_id
+                    location_id = asset.location.location_id if asset.location else None
+                    qty = int(asset.quantity)
+                    
+                    # Проверяем локально-привязанный алерт
+                    threshold = None
+                    if type_id in alert_thresholds_by_location:
+                        if location_id in alert_thresholds_by_location[type_id]:
+                            threshold = alert_thresholds_by_location[type_id][location_id]
+                            logger.info(f"Asset type_id={type_id}, location_id={location_id}, qty={qty}: found location-specific threshold={threshold}")
+                    
                     if threshold is not None:
-                        qty = int(asset.quantity)
                         thresh = int(threshold)
-                        # critical: qty <= thresh + 15% от thresh (порог + 15%)
-                        # warning: qty <= thresh + 30% от thresh (порог + 30%)
+                        # critical: qty <= thresh * 0.25
+                        # warning: qty <= thresh * 0.5
                         critical_threshold = thresh * 0.25
                         warning_threshold = thresh * 0.5
-                        logger.info(f"Asset type_id={asset.type_id.type_id}, quantity={qty}, threshold={thresh}")
+                        
                         logger.info(f"  thresholds: critical={critical_threshold}, warning={warning_threshold}")
                         
                         if qty <= critical_threshold:
                             asset.alert_level = 'critical'
                             logger.info(f"  -> critical (qty={qty} <= {critical_threshold})")
-                        elif qty <= warning_threshold:
+                        elif qty < warning_threshold:
                             asset.alert_level = 'warning'
                             logger.info(f"  -> warning (qty={qty} <= {warning_threshold})")
                         elif qty == thresh:
@@ -428,7 +460,7 @@ def render_traders(request):
                             logger.info(f"  -> None (qty={qty} > {warning_threshold})")
                     else:
                         asset.alert_level = None
-                        logger.info(f"Asset type_id={asset.type_id.type_id}, quantity={asset.quantity}, no threshold found")
+                        logger.info(f"Asset type_id={type_id}, location_id={location_id}, qty={qty}: no threshold found, no coloring")
                 
                 logger.info(f"Выбрано локаций: {len(locations_selected)}, ID: {location_ids}")
                 logger.info(f"Найдено ассетов: {assets.count()}")
@@ -452,7 +484,7 @@ def render_traders(request):
                         # Если несколько персонажей, берем первого
                         character = loc_assets[0].character if loc_assets[0].character else None
                     
-                    location_data[location_obj.location_id] = build_location_hierarchy(loc_assets, character, alert_thresholds)
+                    location_data[location_obj.location_id] = build_location_hierarchy(loc_assets, character, alert_thresholds_by_location)
                 
                 logger.info(f"Строено иерархий для локаций: {len(location_data)}")
                 
@@ -567,13 +599,15 @@ def alert_settings(request):
             form = AlertThresholdForm(request.POST)
             if form.is_valid():
                 type_id_obj = form.cleaned_data.get('type_id')
+                location = form.cleaned_data.get('location')
                 min_quantity = form.cleaned_data.get('min_quantity')
                 is_active = form.cleaned_data.get('is_active', True)
                 
-                # Проверяем, существует ли уже алерт для этого предмета
+                # Проверяем, существует ли уже алерт для этого предмета и локации
                 existing_threshold = AlertThreshold.objects.filter(
                     character=main_character,
-                    type_id=type_id_obj
+                    type_id=type_id_obj,
+                    location=location
                 ).first()
                 
                 if existing_threshold:
@@ -581,15 +615,17 @@ def alert_settings(request):
                     existing_threshold.min_quantity = min_quantity
                     existing_threshold.is_active = is_active
                     existing_threshold.save()
-                    messages.success(request, f'Порог алерта для "{type_id_obj.type_name}" успешно обновлен на {min_quantity}!')
+                    location_name = location.location_name if location else "Все локации"
+                    messages.success(request, f'Порог алерта для "{type_id_obj.type_name}" в локации "{location_name}" успешно обновлен на {min_quantity}!')
                 else:
                     # Создаем новый алерт
                     threshold = form.save(commit=False)
                     threshold.character = main_character
                     threshold.is_active = is_active
-                    logger.info(f"Saving threshold: character={main_character.name}, type_id={threshold.type_id}, min_quantity={threshold.min_quantity}, is_active={threshold.is_active}")
+                    logger.info(f"Saving threshold: character={main_character.name}, type_id={threshold.type_id}, location={threshold.location}, min_quantity={threshold.min_quantity}, is_active={threshold.is_active}")
                     threshold.save()
-                    messages.success(request, 'Порог алерта успешно добавлен!')
+                    location_name = location.location_name if location else "Все локации"
+                    messages.success(request, f'Порог алерта для "{type_id_obj.type_name}" в локации "{location_name}" успешно добавлен!')
                 return redirect('observer_assets_single:alert_settings')
             else:
                 logger.error(f"Form errors: {form.errors}")
@@ -597,12 +633,15 @@ def alert_settings(request):
     else:
         form = AlertThresholdForm()
     
-    # Заполняем список предметов в форме
-    form.fields['type_id'].choices = [(item.type_id, item.type_name) for item in EveItemType.objects.all().order_by('type_name')]
+    # Заполняем список предметов в форме (для создания нового алерта)
+    # Form already has type_id as ModelChoiceField from ModelForm
+    # Заполняем список локаций в форме (для создания нового алерта)
+    # Form already has location as ModelChoiceField from ModelForm
     
     # Добавляем поля для редактирования/удаления существующих порогов
-    # Получаем фильтр из GET параметров
+    # Получаем фильтры из GET параметров
     show_inactive = request.GET.get('show_inactive', 'true').lower() == 'true'
+    show_zero_thresholds = request.GET.get('show_zero_thresholds', 'true').lower() == 'true'
     
     thresholds_list = []
     for at in existing_thresholds:
@@ -615,6 +654,8 @@ def alert_settings(request):
             'type_name': at.type_id.type_name if at.type_id else 'Неизвестно',
             'group_name': at.type_id.group_name if at.type_id else '',
             'category_name': at.type_id.category_name if at.type_id else '',
+            'location_id': at.location_id,
+            'location_name': at.location.location_name if at.location else 'Все локации',
             'min_quantity': at.min_quantity,
             'is_active': at.is_active,
             'created_at': at.created_at,
@@ -901,16 +942,34 @@ def parser_assets(assets, character):
         if not created:
             from observer_assets_single.models import AlertThreshold
             try:
+                # Ищем алерт с конкретной локацией
                 alert = AlertThreshold.objects.get(
                     character=character,
                     type_id=item_type,
+                    location=location,
                     is_active=False
                 )
                 alert.is_active = True
                 alert.save()
-                logger.info(f"Алерт активирован для предмета '{item_type.type_name}' (type_id={item_type.type_id}) - предмет вернулся в ассеты")
+                logger.info(f"Алерт активирован для предмета '{item_type.type_name}' (type_id={item_type.type_id}) в локации '{location.location_name}' (location_id={location.location_id}) - предмет вернулся в ассеты")
             except AlertThreshold.DoesNotExist:
-                pass  # Алерта нет - не активируем
+                # Алерта нет с is_active=False, но может быть с порогом 0 (был деактивирован при удалении)
+                try:
+                    alert = AlertThreshold.objects.get(
+                        character=character,
+                        type_id=item_type,
+                        location=location,
+                        min_quantity=0
+                    )
+                    # Восстанавливаем порог на исходное значение (например, 100) или дефолтное
+                    # Для простоты восстанавливаем на 1 (минимальное значение > 0)
+                    # Пользователь может изменить его позже
+                    alert.min_quantity = 1
+                    alert.is_active = True
+                    alert.save()
+                    logger.info(f"Алерт с порогом 0 активирован для предмета '{item_type.type_name}' (type_id={item_type.type_id}) в локации '{location.location_name}' (location_id={location.location_id}), порог восстановлен на 1")
+                except AlertThreshold.DoesNotExist:
+                    pass  # Алерта нет - не активируем
     
     # Удаляем активы, которые больше не пришли из API (кончились или переместились)
     # Сначала получаем ID типов предметов, которые будут удалены
@@ -922,18 +981,41 @@ def parser_assets(assets, character):
     deleted_count = deleted_assets.count()
     deleted_assets.delete()
     
-    # Деактивируем алерты для удалённых предметов
+    # Для удалённых предметов меняем порог алерта на 0, но оставляем активным
     if deleted_type_ids:
         from observer_assets_single.models import AlertThreshold
-        deactivated_count = AlertThreshold.objects.filter(
-            character=character,
-            type_id__in=deleted_type_ids
-        ).update(is_active=False)
+        # Получаем алерты для удаленных типов предметов
+        # Для каждого ассета находим соответствующие алерты по локации
+        deleted_locations = deleted_assets.values_list('location', 'type_id')
         
-        logger.info(f"Удалено {deleted_count} ассетов, деактивировано {deactivated_count} алертов для персонажа {character.name}")
-        for type_id in deleted_type_ids:
-            type_name = EveItemType.objects.get(type_id=type_id).type_name if EveItemType.objects.filter(type_id=type_id).exists() else f"Type ID {type_id}"
-            logger.info(f"  - Предмет '{type_name}' (type_id={type_id}) удалён, алерт деактивирован")
+        # Группируем удаленные ассеты по type_id и location
+        from collections import defaultdict
+        deleted_by_type_and_location = defaultdict(set)
+        for loc_id, type_id in deleted_locations:
+            deleted_by_type_and_location[(type_id, loc_id)].add(loc_id)
+        
+        # Обновляем алерты с привязкой к локации
+        updated_count = 0
+        for (type_id, loc_id), loc_ids in deleted_by_type_and_location.items():
+            # Алерты с конкретной локацией
+            location_based_alerts = AlertThreshold.objects.filter(
+                character=character,
+                type_id_id=type_id,
+                location_id=loc_id
+            )
+            
+            # Обновляем пороги на 0, но оставляем активными
+            updated_count += location_based_alerts.update(
+                min_quantity=0,
+                is_active=True
+            )
+            
+            if location_based_alerts.exists():
+                type_name = EveItemType.objects.get(type_id=type_id).type_name if EveItemType.objects.filter(type_id=type_id).exists() else f"Type ID {type_id}"
+                location_name = EveLocation.objects.get(location_id=loc_id).location_name if EveLocation.objects.filter(location_id=loc_id).exists() else f"Location ID {loc_id}"
+                logger.info(f"Предмет '{type_name}' (type_id={type_id}) удалён из локации '{location_name}' (location_id={loc_id}), порог алерта изменен на 0")
+        
+        logger.info(f"Удалено ассетов: {deleted_count}, обновлено алертов с привязкой к локации: {updated_count}")
     
     return Asset.objects.filter(character=character).count()
 

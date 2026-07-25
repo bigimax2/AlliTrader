@@ -123,8 +123,16 @@ class AlertThreshold(models.Model):
         blank=False,
         db_column='type_id'
     )
+    location = models.ForeignKey(
+        EveLocation,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='alert_thresholds',
+        help_text="Локация для алерта (NULL = все локации)"
+    )
     min_quantity = models.PositiveIntegerField(null=False, blank=False, default=1, validators=[
-        MinValueValidator(1, message='Порог алерта должен быть больше 0')
+        MinValueValidator(0, message='Порог алерта должен быть больше или равен 0')
     ])
     is_active = models.BooleanField(default=True, help_text="Активен ли алерт")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -133,14 +141,16 @@ class AlertThreshold(models.Model):
     class Meta:
         verbose_name = "Порог алерта"
         verbose_name_plural = "Пороги алертов"
-        unique_together = ('character', 'type_id')
+        unique_together = ('character', 'type_id', 'location')
         indexes = [
             models.Index(fields=['character']),
             models.Index(fields=['type_id']),
+            models.Index(fields=['location']),
         ]
 
     def __str__(self):
         type_name = self.type_id.type_name if self.type_id else "Неизвестно"
+        location_name = self.location.location_name if self.location else "Все локации"
         character_name = self.character.name if self.character else "Неизвестно"
         status = "✓" if self.is_active else "✗"
-        return f"{status} {character_name} - {type_name}: {self.min_quantity}"
+        return f"{status} {character_name} - {type_name} @ {location_name}: {self.min_quantity}"

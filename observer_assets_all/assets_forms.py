@@ -167,11 +167,12 @@ class AssetsOverviewForm(forms.Form):
             ('all_alerts', 'Все алерты (warning + critical)'),
             ('critical', 'Только критические алерты'),
             ('warning', 'Только предупреждения'),
+            ('zero_quantity', 'Только нулевые количества'),
         ],
         required=False,
         label='Уровень алерта',
         widget=forms.Select(attrs={'class': 'form-select'}),
-        help_text='Выберите уровень алертов для отображения: все алерты, только критические или только предупреждения'
+        help_text='Выберите уровень алертов для отображения: все алерты, только критические, только предупреждения или только нулевые количества'
     )
 
     character = forms.MultipleChoiceField(
