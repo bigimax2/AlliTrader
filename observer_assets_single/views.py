@@ -9,7 +9,7 @@ from observer_assets_single.scopes_for_traders import SCOPES_FOR_TRADERS
 from observer_assets_single.tasks import get_personage_assets
 from EVE_Online_SQLite_API import get_stations_info, get_types_info
 from django.contrib.auth.decorators import login_required
-from observer_assets_single.models import EveItemType, AlertThreshold
+from observer_assets_single.models import EveItemType, AlertThreshold, EveLocation
 from eveonline.models import EveCharacter
 from esi.models import Token
 from django.contrib import messages
@@ -586,7 +586,12 @@ def alert_settings(request):
                 threshold = AlertThreshold.objects.get(id=threshold_id, character=main_character)
                 form = AlertThresholdForm(request.POST, instance=threshold)
                 if form.is_valid():
-                    form.save()
+                    # Сохраняем локацию явно, так как она может быть None
+                    location = form.cleaned_data.get('location')
+                    threshold.location = location
+                    threshold.min_quantity = form.cleaned_data.get('min_quantity')
+                    threshold.is_active = form.cleaned_data.get('is_active', True)
+                    threshold.save()
                     messages.success(request, 'Порог алерта успешно обновлен!')
                     return redirect('observer_assets_single:alert_settings')
                 else:
@@ -643,6 +648,9 @@ def alert_settings(request):
     show_inactive = request.GET.get('show_inactive', 'true').lower() == 'true'
     show_zero_thresholds = request.GET.get('show_zero_thresholds', 'true').lower() == 'true'
     
+    # Получаем список всех локаций для выпадающего списка
+    locations_list = EveLocation.objects.filter(location_type='station').order_by('location_name')
+    
     thresholds_list = []
     for at in existing_thresholds:
         # Показываем все алерты по умолчанию, или только активные если show_inactive = false
@@ -668,6 +676,7 @@ def alert_settings(request):
         'existing_type_ids': existing_type_ids,
         'main_character': main_character,
         'show_inactive': show_inactive,
+        'locations_list': locations_list,
     })
 
 
@@ -732,7 +741,7 @@ def delete_threshold(request):
 def edit_threshold(request):
     """Редактирование порога алерта"""
     from authenticated.models import UserProfile
-    from observer_assets_single.models import AlertThreshold
+    from observer_assets_single.models import AlertThreshold, EveLocation
     
     if request.method == 'POST' and request.user.is_authenticated:
         # Получаем main_character пользователя
@@ -747,10 +756,22 @@ def edit_threshold(request):
             return redirect('authenticated:profile')
         
         threshold_id = request.POST.get('threshold_id')
+        location_id = request.POST.get('location')
         min_quantity = request.POST.get('min_quantity')
         is_active = request.POST.get('is_active') == 'on'
         
         try:
+            # Валидация threshold_id
+            if not threshold_id or threshold_id == '':
+                messages.error(request, 'Идентификатор порога алерта не указан')
+                return redirect('observer_assets_single:alert_settings')
+            
+            try:
+                threshold_id = int(threshold_id)
+            except ValueError:
+                messages.error(request, 'Идентификатор порога алерта должен быть числом')
+                return redirect('observer_assets_single:alert_settings')
+            
             # Валидация min_quantity
             if min_quantity is None or min_quantity == '':
                 messages.error(request, 'Порог алерта не указан')
@@ -762,13 +783,27 @@ def edit_threshold(request):
                 messages.error(request, 'Порог алерта должен быть числом')
                 return redirect('observer_assets_single:alert_settings')
             
-            if min_quantity <= 0:
-                messages.error(request, 'Порог алерта должен быть больше 0')
+            # Порог может быть 0 (когда предмет исчез из локации)
+            if min_quantity < 0:
+                messages.error(request, 'Порог алерта не может быть отрицательным')
                 return redirect('observer_assets_single:alert_settings')
             
             threshold = AlertThreshold.objects.get(id=threshold_id, character=main_character)
             threshold.min_quantity = min_quantity
             threshold.is_active = is_active
+            
+            # Обновляем локацию, если она указана
+            if location_id and location_id != '':
+                try:
+                    location = EveLocation.objects.get(location_id=location_id)
+                    threshold.location = location
+                except EveLocation.DoesNotExist:
+                    messages.error(request, 'Указанная локация не найдена')
+                    return redirect('observer_assets_single:alert_settings')
+            else:
+                # Пустая локация = все локации (None)
+                threshold.location = None
+            
             threshold.save()
             messages.success(request, 'Порог алерта успешно обновлен!')
         except AlertThreshold.DoesNotExist:

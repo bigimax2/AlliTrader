@@ -241,8 +241,8 @@ class AlertThresholdForm(forms.ModelForm):
         self.fields['type_id'].queryset = EveItemType.objects.all().order_by('type_name')
         # Заполняем список локаций
         self.fields['location'].queryset = EveLocation.objects.filter(location_type='station').order_by('location_name')
-        
-        # Если форма используется для редактирования, скрываем поле type_id и location
-        if self.instance and self.instance.pk:
-            self.fields['type_id'].widget = forms.HiddenInput()
-            self.fields['location'].widget = forms.HiddenInput()
+        self.fields['location'].required = False
+        self.fields['location'].widget.attrs['class'] = 'form-select select2-search'
+        self.fields['location'].widget.attrs['style'] = 'width: 100%;'
+        # Добавляем опцию пустой локации (для всех локаций)
+        self.fields['location'].empty_label = 'Все локации'

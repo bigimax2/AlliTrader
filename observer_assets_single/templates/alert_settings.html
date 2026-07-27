@@ -1,5 +1,46 @@
 {% extends 'index.html' %}
 {% block content %}
+<style>
+    /* Корректировка z-index для Select2 в модальных окнах */
+    /* Bootstrap 5 modal имеет z-index: 1055 */
+    /* Select2 dropdown должен быть поверх */
+    body .select2-container {
+        z-index: 1065 !important;
+    }
+    
+    body .select2-container--open {
+        z-index: 1065 !important;
+    }
+    
+    body .select2-dropdown {
+        z-index: 1066 !important;
+    }
+    
+    body .select2-drop {
+        z-index: 1065 !important;
+    }
+    
+    body .select2-drop-mask {
+        z-index: 1059 !important;
+    }
+    
+    body .select2-results__option {
+        z-index: 1065 !important;
+    }
+    
+    /* z-index для поля поиска Select2 */
+    body .select2-search__field {
+        z-index: 1066 !important;
+    }
+    
+    /* Убираем overflow: hidden у модального окна, чтобы Select2 работал корректно */
+    .modal-content {
+        overflow: visible !important;
+    }
+    .modal-body {
+        overflow: visible !important;
+    }
+</style>
 <div class="container-fluid px-4 py-3">
     <div class="row mb-4">
         <div class="col-12">
@@ -124,7 +165,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Модальное окно для редактирования порога -->
     <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -143,19 +184,24 @@
                             <label for="edit_type_name" class="form-label form-label-theme">
                                 <i class="fas fa-cube"></i> Предмет
                             </label>
-                            <input type="text" class="form-control" id="edit_type_name" disabled>
+                            <input type="text" class="form-control" id="edit_type_name" readonly>
                         </div>
                         <div class="mb-3">
                             <label for="edit_location" class="form-label form-label-theme">
                                 <i class="fas fa-map-marker-alt"></i> Локация
                             </label>
-                            <input type="text" class="form-control" id="edit_location" disabled>
+                            <select class="form-select" id="edit_location" name="location" style="width: 100%;">
+                                <option value="">Все локации</option>
+                                {% for loc in locations_list %}
+                                <option value="{{ loc.location_id }}">{{ loc.location_name }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                         <div class="mb-3">
                             <label for="edit_min_quantity" class="form-label form-label-theme">
                                 Минимальное количество
                             </label>
-                            <input type="number" class="form-control" id="edit_min_quantity" name="min_quantity" min="1" required>
+                            <input type="number" class="form-control" id="edit_min_quantity" name="min_quantity" min="0" required>
                         </div>
                         <div class="mb-3">
                             <div class="form-check">
@@ -178,155 +224,89 @@
             </div>
         </div>
     </div>
-    
-    <div class="row">
-        <div class="col-12">
-            <div class="card card-theme">
-                <div class="card-header card-header-theme">
-                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Как это работает</h5>
-                </div>
-                <div class="card-body card-body-theme">
-                    <p>Эта страница позволяет настроить индивидуальные пороги количества предметов для получения алертов в таблице ассетов.</p>
-                    <ul>
-                        <li><strong>Красный цвет (critical):</strong> количество предметов меньше или равно 25% от порога</li>
-                        <li><strong>Желтый цвет (warning):</strong> количество предметов меньше или равно 50% от порога</li>
-                        <li><strong>Нормальный цвет:</strong> количество больше 50% от порога</li>
-                    </ul>
-                    <p><strong>Как работают алерты с привязкой к локации:</strong></p>
-                    <ul>
-                        <li><strong>Локально-привязанный алерт:</strong> работает только для конкретной локации. Итемы в других локациях будут без окраски.</li>
-                        <li><strong>Итем исчез из локации:</strong> порог алерта меняется на 0, алерт остается активным, чтобы вы знали, что предмета нет</li>
-                        <li><strong>Итем вернулся в локацию:</strong> порог алерта восстанавливается на 1 (минимальное значение), алерт остается активным</li>
-                        <li><strong>Алерт без локации:</strong> игнорируется (не применяется ни к каким итемам)</li>
-                    </ul>
-                    <p><strong>Пример:</strong></p>
-                    <ul>
-                        <li>Вы установили алерт: "Предмет X, 100 шт., Станция А"</li>
-                        <li>Итемы предмета X на "Станции А" с количеством ≤ 25 - красный цвет</li>
-                        <li>Итемы предмета X на "Станции А" с количеством ≤ 50 - желтый цвет</li>
-                        <li>Предмет X исчез с "Станции А" - порог алерта меняется на 0, алерт остается активным</li>
-                        <li>Предмет X вернулся на "Станцию А" - порог алерта восстанавливается на 1</li>
-                        <li>Итемы предмета X на "Станции Б" - без окраски (алерт привязан только к "Станции А")</li>
-                    </ul>
-                    <p><strong>Важно:</strong> порог алерта должен быть больше 0.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Раздел импорта алертов -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card card-theme">
-                <div class="card-header card-header-theme">
-                    <h5 class="mb-0"><i class="fas fa-upload"></i> Импорт алертов из файла</h5>
-                </div>
-                <div class="card-body card-body-theme">
-                    <div class="alert alert-info alert-theme mb-3">
-                        <i class="fas fa-info-circle"></i> 
-                        Загрузите JSON-файл с резервной копией алертов. Дубликаты будут обновлены, новые - добавлены. <strong>Пороги ≤ 0 будут пропущены.</strong>
-                    </div>
-                    <div class="alert alert-warning alert-theme mb-3">
-                        <i class="fas fa-exclamation-triangle"></i> 
-                        <strong>Важно:</strong> файл должен содержать корректный JSON с полем "alerts" (список объектов с type_id и min_quantity > 0)
-                    </div>
-                    <div class="alert alert-warning alert-theme mb-3">
-                        <i class="fas fa-lightbulb"></i> 
-                        <strong>Типичные ошибки импорта:</strong>
-                        <ul class="mb-0">
-                            <li>Файл не имеет расширения .json</li>
-                            <li>Содержимое не является валидным JSON</li>
-                            <li>Отсутствует поле "alerts" или оно не является списком</li>
-                            <li>type_id или min_quantity не являются числами</li>
-                        </ul>
-                    </div>
-                    <form method="post" enctype="multipart/form-data" id="importForm" action="{% url 'observer_assets_single:import_alerts' %}">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label for="alerts_file" class="form-label form-label-theme">
-                                <i class="fas fa-file-upload"></i> Выберите JSON файл
-                            </label>
-                            <input type="file" class="form-control form-control-theme" id="alerts_file" name="alerts_file" 
-                                   accept="application/json,.json">
-                            <small class="form-text text-muted">
-                                <i class="fas fa-info-circle"></i> Файл должен быть в формате JSON с алертами (см. пример ниже)
-                            </small>
-                            <div class="alert alert-light alert-theme mt-2 mb-0">
-                                <i class="fas fa-code"></i> <strong>Пример JSON:</strong>
-                                <pre class="mb-0" style="font-size: 0.85rem; background-color: #f8f9fa;">{
-  "version": "1.0",
-  "alerts": [
-    {"type_id": 123, "min_quantity": 100},
-    {"type_id": 456, "min_quantity": 50}
-  ]
-}</pre>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-success btn-theme">
-                            <i class="fas fa-upload"></i> Загрузить алерты
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 {% endblock content %}
-
-
-
 
 {% block page_scripts %}
 <script>
 $(document).ready(function($) {
-    console.log('Script loaded');
-    console.log('Select2 elements:', $('.select2-search'));
-    console.log('Select2 version:', $.fn.select2 ? 'loaded' : 'not loaded');
-    
-    // Инициализация Select2 для поиска предметов
+    // Инициализация Select2 для формы добавления алерта (не для модального окна)
     if (typeof $.fn.select2 !== 'undefined') {
-        $('.select2-search').select2({
-            placeholder: 'Выберите предмет...',
-            allowClear: true,
-            width: '100%',
-            language: {
-                noResults: function() {
-                    return 'Ничего не найдено';
-                }
+        $('#alertForm select').each(function() {
+            // Проверяем, что элемент не является частью модального окна
+            if (!$(this).closest('#editModal').length) {
+                $(this).select2({
+                    placeholder: 'Выберите предмет...',
+                    allowClear: true,
+                    width: '100%',
+                    language: {
+                        noResults: function() {
+                            return 'Ничего не найдено';
+                        }
+                    }
+                });
             }
         });
-        console.log('Select2 initialized successfully');
+        console.log('Select2 initialized for alertForm');
     } else {
         console.error('Select2 is not loaded!');
     }
     
     // Получаем CSRF токен
     var csrfToken = $('input[name=csrfmiddlewaretoken]').val() || '{{ csrf_token }}';
-    console.log('CSRF Token:', csrfToken);
     
     // Обработка открытия модального окна редактирования
     $('#editModal').on('show.bs.modal', function(event) {
-        console.log('Modal show event triggered');
         var button = $(event.relatedTarget);
-        console.log('Button:', button);
-        console.log('Button data:', button.data());
+        
+        // Отключаем поля ввода в основной форме alertForm (включая Select2)
+        var alertFormElements = $('#alertForm select, #alertForm input, #alertForm button').not('.toggle-active, [type="hidden"]');
+        alertFormElements.prop('disabled', true);
+        
+        // Скрываем контейнеры Select2 в alertForm, чтобы они не перекрывали модальное окно
+        $('#alertForm .select2-container').not('#editModal .select2-container').hide();
         
         var thresholdId = button.data('threshold-id');
         var thresholdQuantity = button.data('threshold-quantity');
         var typeName = button.data('threshold-name');
         var thresholdActive = button.data('threshold-active');
-        var locationName = button.data('threshold-location') || 'Все локации';
-        
-        console.log('Threshold ID:', thresholdId);
-        console.log('Threshold Quantity:', thresholdQuantity);
-        console.log('Type Name:', typeName);
-        console.log('Threshold Active:', thresholdActive);
-        console.log('Location Name:', locationName);
+        var locationId = button.data('threshold-location') || '';
         
         var modal = $(this);
-        modal.find('#edit_threshold_id').val(thresholdId);
+        
+        // Устанавливаем значение поля с именем предмета
         modal.find('#edit_type_name').val(typeName);
-        modal.find('#edit_location').val(locationName);
+        
+        // Устанавливаем значение threshold_id для отправки в форму
+        modal.find('#edit_threshold_id').val(thresholdId);
+        
+        // Инициализация Select2 для локации в модальном окне (только один раз)
+        var locationSelect = modal.find('#edit_location');
+        if (!locationSelect.data('select2')) {
+            locationSelect.select2({
+                placeholder: 'Все локации',
+                allowClear: true,
+                width: '100%',
+                dropdownParent: $('#editModal'),
+                language: {
+                    noResults: function() {
+                        return 'Ничего не найдено';
+                    }
+                }
+            });
+        }
+        
+        // Устанавливаем значение для Select2 локации
+        locationSelect.val(locationId).trigger('change');
+        
+        // Фокус на поле поиска Select2
+        setTimeout(function() {
+            var searchField = locationSelect.next('.select2-container').find('.select2-search__field');
+            if (searchField.length) {
+                searchField.focus();
+            }
+        }, 150);
+        
         modal.find('#edit_min_quantity').val(thresholdQuantity);
         
         // Устанавливаем состояние чекбокса is_active
@@ -338,14 +318,35 @@ $(document).ready(function($) {
         }
     });
     
+    // Обработка закрытия модального окна - включаем поля в alertForm обратно
+    $('#editModal').on('hidden.bs.modal', function(event) {
+        // Очищаем поля модального окна
+        $(this).find('#edit_threshold_id').val('');
+        $(this).find('#edit_type_name').val('');
+        $(this).find('#edit_min_quantity').val('');
+        $(this).find('#edit_is_active').prop('checked', true);
+        
+        // Очищаем Select2 для локации в модальном окне
+        var locationSelect = $(this).find('#edit_location');
+        locationSelect.val('').trigger('change');
+        // Закрываем выпадающий список Select2
+        if (locationSelect.data('select2')) {
+            locationSelect.select2('close');
+        }
+        // Включаем поля в alertForm обратно (включая Select2)
+        var alertFormElements = $('#alertForm select, #alertForm input, #alertForm button').not('.toggle-active, [type="hidden"]');
+        alertFormElements.prop('disabled', false);
+        
+        // Показываем контейнеры Select2 в alertForm обратно
+        $('#alertForm .select2-container').not('#editModal .select2-container').show();
+    });
+    
     // Обработка переключения активности алерта через чекбокс
     $(document).on('change', '.toggle-active', function() {
         var checkbox = $(this);
         var thresholdId = checkbox.data('threshold-id');
         var toggleUrl = checkbox.data('toggle-url');
         var isChecked = checkbox.is(':checked');
-        
-        console.log('Toggle active triggered for threshold:', thresholdId, 'URL:', toggleUrl, 'checked:', isChecked);
         
         if (!toggleUrl) {
             console.error('Toggle URL не найден');
@@ -362,7 +363,6 @@ $(document).ready(function($) {
             },
             dataType: 'json',
             success: function(response) {
-                console.log('Response:', response);
                 if (response.success) {
                     console.log('Алерт переключен:', response.is_active);
                     // Обновляем класс строки в зависимости от статуса
