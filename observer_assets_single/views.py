@@ -1285,7 +1285,8 @@ def import_alerts(request):
                             character=main_character,
                             type_id=item_type,
                             min_quantity=min_quantity,
-                            is_active=is_active
+                            is_active=is_active,
+                            location_id=location_id,
                         )
                         imported_count += 1
                 
