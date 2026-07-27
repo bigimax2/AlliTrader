@@ -1087,7 +1087,9 @@ def export_alerts(request):
             'type_id': threshold.type_id.type_id,
             'type_name': threshold.type_id.type_name,
             'min_quantity': threshold.min_quantity,
-            'is_active': threshold.is_active
+            'is_active': threshold.is_active,
+            'location_id': threshold.location_id,
+            'location_name': threshold.location.location_name if threshold.location else None
         })
     
     # Создаем финальный объект с метаданными
@@ -1240,11 +1242,11 @@ def import_alerts(request):
                         messages.warning(request, 'Пропущен алерт: min_quantity отсутствует или не является числом')
                         continue
                     
-                    # Валидация min_quantity: должен быть больше 0
-                    if min_quantity <= 0:
-                        logger.warning(f"Алерт для type_id {type_id} пропущен: min_quantity={min_quantity} (должен быть > 0)")
+                    # Валидация min_quantity: должен быть >= 0 (0 означает "предмет исчез")
+                    if min_quantity < 0:
+                        logger.warning(f"Алерт для type_id {type_id} пропущен: min_quantity={min_quantity} (должен быть >= 0)")
                         skipped_count += 1
-                        messages.warning(request, f'Алерт для предмета ID {type_id} пропущен: порог должен быть больше 0')
+                        messages.warning(request, f'Алерт для предмета ID {type_id} пропущен: порог должен быть >= 0')
                         continue
                     
                     # Проверяем существование типа предмета и получаем из API если нужно
@@ -1261,10 +1263,14 @@ def import_alerts(request):
                     else:
                         is_active = False  # Предмета нет в ассетах
                     
-                    # Проверяем существующий алерт
+                    # Получаем location_id из данных импорта
+                    location_id = alert_data.get('location_id')
+                    
+                    # Проверяем существующий алерт с учетом location
                     existing_threshold = AlertThreshold.objects.filter(
                         character=main_character,
-                        type_id=item_type
+                        type_id=item_type,
+                        location_id=location_id
                     ).first()
                     
                     if existing_threshold:
