@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import EveItemType, EveLocation, Asset, AlertThreshold
+from .models import EveItemType, EveLocation, Asset, AlertThreshold, ZeroAlertNote
 
 
 @admin.register(AlertThreshold)
@@ -35,3 +35,12 @@ class AssetAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Asset, AssetAdmin)
+
+
+@admin.register(ZeroAlertNote)
+class ZeroAlertNoteAdmin(admin.ModelAdmin):
+    list_display = ('character', 'type_id', 'location', 'note', 'updated_at')
+    list_filter = ('character', 'type_id', 'location')
+    search_fields = ('type_id__type_name', 'location__location_name', 'character__name')
+    ordering = ('character', 'type_id', 'location')
+    list_select_related = ('character', 'type_id', 'location')

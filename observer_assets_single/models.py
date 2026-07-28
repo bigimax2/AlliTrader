@@ -148,6 +148,46 @@ class AlertThreshold(models.Model):
             models.Index(fields=['location']),
         ]
 
+
+class ZeroAlertNote(models.Model):
+    """Заметки для нулевых алертов (когда ассета нет в локации)"""
+    character = models.ForeignKey(
+        EveCharacter,
+        on_delete=models.CASCADE,
+        related_name='zero_alert_notes',
+        verbose_name='Персонаж'
+    )
+    type_id = models.ForeignKey(
+        EveItemType,
+        on_delete=models.CASCADE,
+        db_column='type_id'
+    )
+    location = models.ForeignKey(
+        EveLocation,
+        on_delete=models.CASCADE,
+        related_name='zero_alert_notes',
+        help_text="Локация для нулевого алерта"
+    )
+    note = models.TextField('Заметка', blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Заметка нулевого алерта"
+        verbose_name_plural = "Заметки нулевых алертов"
+        unique_together = ('character', 'type_id', 'location')
+        indexes = [
+            models.Index(fields=['character']),
+            models.Index(fields=['type_id']),
+            models.Index(fields=['location']),
+        ]
+
+    def __str__(self):
+        type_name = self.type_id.type_name if self.type_id else "Неизвестно"
+        location_name = self.location.location_name if self.location else "Неизвестно"
+        character_name = self.character.name if self.character else "Неизвестно"
+        return f"{character_name} - {type_name} @ {location_name}"
+
+
     def __str__(self):
         type_name = self.type_id.type_name if self.type_id else "Неизвестно"
         location_name = self.location.location_name if self.location else "Все локации"

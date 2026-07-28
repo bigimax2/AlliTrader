@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from authenticated.models import UserProfile
 from django.shortcuts import render
 
 from esi.models import Token
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 from observer_assets_all.scopes_for_traders import SCOPES_FOR_TRADERS
 
-from observer_assets_single.models import  Asset, EveLocation, AlertThreshold
+from observer_assets_single.models import  Asset, EveLocation, AlertThreshold, ZeroAlertNote, EveItemType
 
 
 
@@ -28,6 +29,7 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location, al
 
     Ассеты на открытом пространстве локации отображаются отдельно.
     Ассеты внутри контейнеров группируются по контейнерам в аккордеоне.
+    Алерты с порогом 0 (zero_quantity_alerts) - алерты, где min_quantity=0 и текущее количество=0.
 
     Args:
         assets: queryset ассетов для одной локации
@@ -36,13 +38,17 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location, al
         alert_level_filter: фильтр по уровню алерта ('critical', 'warning', None)
 
     Returns:
-        Словарь с двумя ключами:
+        Словарь с тремя ключами:
         - 'open_assets': список ассетов на открытом пространстве
         - 'container_groups': словарь {item_id: {'name': ..., 'assets': [...]}}
+        - 'zero_alerts': список словарей {type_id, type_name, location_id, threshold, notes}
     """
     if not assets:
-        return {'open_assets': [], 'container_groups': {}}
+        return {'open_assets': [], 'container_groups': {}, 'zero_alerts': []}
 
+    # Словарь для хранения нулевых алертов: {type_id: {location_id: threshold}}
+    zero_alerts_map = {}  # {type_id: {'type_id': int, 'type_name': str, 'location_id': int, 'threshold': int, 'notes': str}}
+    
     # Сначала вычисляем alert_level для всех ассетов (открытых и внутри контейнеров)
     for asset in assets:
         type_id = asset.type_id.type_id
@@ -58,27 +64,31 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location, al
         
         if threshold is not None:
             thresh = int(threshold)
-            critical_threshold = thresh * 0.25
-            warning_threshold = thresh * 0.5
-
-            if qty <= critical_threshold:
-                asset.alert_level = 'critical'
-                logger.info(f"  -> critical (qty={qty} <= {critical_threshold})")
-            elif qty <= warning_threshold:
-                asset.alert_level = 'warning'
-                logger.info(f"  -> warning (qty={qty} <= {warning_threshold})")
-            elif qty == thresh:
-                asset.alert_level = 'warning'
-                logger.info(f"  -> warning (qty={qty} = {thresh})")
-            else:
+            
+            # Пропускаем обработку порогов 0 в этом цикле - они обрабатываются отдельно в zero_alerts
+            if thresh == 0:
+                logger.info(f"Asset type_id={type_id}, location_id={location_id}, qty={qty}: threshold=0, skipping (handled in zero_alerts)")
                 asset.alert_level = None
-                logger.info(f"  -> None (qty={qty} > {warning_threshold})")
+            else:
+                critical_threshold = thresh * 0.25
+                warning_threshold = thresh * 0.5
+
+                if qty < critical_threshold:
+                    asset.alert_level = 'critical'
+                    logger.info(f"  -> critical (qty={qty} <= {critical_threshold})")
+                elif qty < warning_threshold:
+                    asset.alert_level = 'warning'
+                    logger.info(f"  -> warning (qty={qty} <= {warning_threshold})")
+
+                else:
+                    asset.alert_level = None
+                    logger.info(f"  -> None (qty={qty} > {warning_threshold})")
         else:
             asset.alert_level = None
             logger.info(f"Asset type_id={type_id}, location_id={location_id}, qty={qty}: no threshold found, no coloring")
         
-        # Если нет алерта - удаляем заметки
-        if asset.alert_level is None:
+        # Если нет алерта и порог != 0 - удаляем заметки
+        if asset.alert_level is None and threshold != 0:
             asset.notes = ''
             asset.save()
             logger.info(f"Очищены заметки для ассета {asset.item_id} (нет алерта)")
@@ -141,27 +151,31 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location, al
         
         if threshold is not None:
             thresh = int(threshold)
-            critical_threshold = thresh * 0.25
-            warning_threshold = thresh * 0.5
-
-            if qty <= critical_threshold:
-                content.alert_level = 'critical'
-                logger.info(f"  -> critical (qty={qty} <= {critical_threshold})")
-            elif qty <= warning_threshold:
-                content.alert_level = 'warning'
-                logger.info(f"  -> warning (qty={qty} <= {warning_threshold})")
-            elif qty == thresh:
-                content.alert_level = 'warning'
-                logger.info(f"  -> warning (qty={qty} = {thresh})")
-            else:
+            
+            # Пропускаем обработку порогов 0 в этом цикле - они обрабатываются отдельно в zero_alerts
+            if thresh == 0:
+                logger.info(f"Container asset type_id={type_id}, location_id={location_id}, qty={qty}: threshold=0, skipping (handled in zero_alerts)")
                 content.alert_level = None
-                logger.info(f"  -> None (qty={qty} > {warning_threshold})")
+            else:
+                critical_threshold = thresh * 0.25
+                warning_threshold = thresh * 0.5
+
+                if qty < critical_threshold:
+                    content.alert_level = 'critical'
+                    logger.info(f"  -> critical (qty={qty} <= {critical_threshold})")
+                elif qty < warning_threshold:
+                    content.alert_level = 'warning'
+                    logger.info(f"  -> warning (qty={qty} <= {warning_threshold})")
+
+                else:
+                    content.alert_level = None
+                    logger.info(f"  -> None (qty={qty} > {warning_threshold})")
         else:
             content.alert_level = None
             logger.info(f"Container asset type_id={type_id}, location_id={location_id}, qty={qty}: no threshold found, no coloring")
         
-        # Если нет алерта - удаляем заметки
-        if content.alert_level is None:
+        # Если нет алерта и порог != 0 - удаляем заметки
+        if content.alert_level is None and threshold != 0:
             content.notes = ''
             content.save()
             logger.info(f"Очищены заметки для контейнера {content.item_id} (нет алерта)")
@@ -217,7 +231,98 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location, al
     sorted_container_groups = dict(sorted(container_groups.items(), key=lambda x: x[1]['name']))
     container_groups = sorted_container_groups
 
-    # Фильтруем результаты по alert_level_filter, если задан
+    # --- Обрабатываем нулевые алерты (min_quantity=0) ДО фильтрации ---
+    # Нулевой алерт = порог 0, но ассета в локации может НЕ БЫТЬ
+    # Находим все алерты с threshold=0 для этой локации
+    location_id = None
+    if open_assets:
+        location_id = open_assets[0].location.location_id if open_assets[0].location else None
+    
+    zero_alerts = []
+    
+    # Собираем set всех type_id, которые ЕСТЬ в локации (открытые + контейнеры)
+    type_ids_present_in_location = set()
+    for asset in open_assets:
+        type_ids_present_in_location.add(asset.type_id.type_id)
+    for item_id, container_data in container_groups.items():
+        for container_asset in container_data.get('assets', []):
+            type_ids_present_in_location.add(container_asset.type_id.type_id)
+    
+    # Проверяем алерты с min_quantity=0
+    for type_id, loc_map in alert_thresholds_by_location.items():
+        if location_id and location_id in loc_map:
+            threshold = loc_map[location_id]
+            if int(threshold) == 0:
+                # Алерт с порогом 0 найден для этого type_id в этой локации
+                # Теперь проверяем, есть ли ассет в локации
+                type_name = ''
+                item_id = None
+                notes = ''
+                
+                # Ищем ассет в открытых — он будет, если qty > 0
+                for asset in open_assets:
+                    if asset.type_id.type_id == type_id:
+                        type_name = asset.type_id.type_name or ''
+                        notes = asset.notes or ''
+                        item_id = asset.item_id
+                        break
+                
+                if not type_name:
+                    # Ищем в контейнерах
+                    for cont_item_id, container_data in container_groups.items():
+                        for container_asset in container_data.get('assets', []):
+                            if container_asset.type_id.type_id == type_id:
+                                type_name = container_asset.type_id.type_name or ''
+                                notes = container_asset.notes or ''
+                                item_id = container_asset.item_id
+                                break
+                        if type_name:
+                            break
+                
+                # Если ассета НЕТ в локации (нигде не нашли) — это и есть нулевой алерт
+                # Добавляем строку-заглушку с quantity=0
+                if not type_name:
+                    # Получаем имя типа из БД
+                    try:
+                        item_type = EveItemType.objects.get(type_id=type_id)
+                        type_name = item_type.type_name or f"Type ID: {type_id}"
+                    except Exception:
+                        type_name = f"Type ID: {type_id}"
+                    
+                    # Загружаем заметку из ZeroAlertNote
+                    placeholder_notes = ''
+                    try:
+                        zero_note = ZeroAlertNote.objects.get(character=character, type_id_id=type_id, location_id=location_id)
+                        placeholder_notes = zero_note.note or ''
+                    except ZeroAlertNote.DoesNotExist:
+                        placeholder_notes = ''
+                    except Exception:
+                        placeholder_notes = ''
+                    
+                    zero_alerts.append({
+                        'type_id': type_id,
+                        'type_name': type_name,
+                        'location_id': location_id,
+                        'threshold': int(threshold),
+                        'notes': placeholder_notes,
+                        'item_id': None,  # ассета нет, item_id = None
+                        'is_placeholder': True,  # это заглушка, реального ассета нет
+                    })
+                else:
+                    # Ассет есть, но его количество = 0 (крайний редкий случай)
+                    zero_alerts.append({
+                        'type_id': type_id,
+                        'type_name': type_name,
+                        'location_id': location_id,
+                        'threshold': int(threshold),
+                        'notes': notes,
+                        'item_id': item_id,
+                        'is_placeholder': False,
+                    })
+    
+    zero_alerts.sort(key=lambda x: x['type_name'])
+
+    # --- Теперь фильтруем результаты по alert_level_filter, если задан ---
     if alert_level_filter:
         # Если выбрана опция "все алерты" - показываем и warning и critical
         if alert_level_filter == 'all_alerts':
@@ -265,7 +370,7 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location, al
                     }
             container_groups = filtered_container_groups
 
-    return {'open_assets': open_assets, 'container_groups': container_groups}
+    return {'open_assets': open_assets, 'container_groups': container_groups, 'zero_alerts': zero_alerts}
 
 
 @app_access_required(ObserverAssetsAllConfig.name)
@@ -447,7 +552,7 @@ def assets_overview(request):
                     else:
                         alert_thresholds = {}
 
-                    # Удаляем локации, где оба списка пустые (нет ассетов, соответствующих фильтру)
+                    # Удаляем локации, где все списки пустые (нет ассетов, контейнеров и нулевых алертов)
                     if alert_level_filter and location_data:
                         characters_to_remove = []
                         for character_name, character_locations in location_data.items():
@@ -457,9 +562,10 @@ def assets_overview(request):
                                 container_assets_count = sum(
                                     len(cd['assets']) for cd in loc_hierarchy.get('container_groups', {}).values()
                                 )
-                                if open_assets_count == 0 and container_assets_count == 0:
+                                zero_alerts_count = len(loc_hierarchy.get('zero_alerts', []))
+                                if open_assets_count == 0 and container_assets_count == 0 and zero_alerts_count == 0:
                                     locations_to_remove.append(location_name)
-                                    logger.info(f"Удаляем локацию {location_name} у персонажа {character_name}: нет ассетов (open_assets={open_assets_count}, container_assets={container_assets_count})")
+                                    logger.info(f"Удаляем локацию {location_name} у персонажа {character_name}: нет ассетов (open_assets={open_assets_count}, container_assets={container_assets_count}, zero_alerts={zero_alerts_count})")
                             
                             # Удаляем пустые локации из словаря персонажа
                             for location_name in locations_to_remove:
@@ -540,27 +646,61 @@ def assets_overview(request):
 @login_required
 def save_asset_notes(request):
     """
-    View для сохранения заметок по ассету.
+    View для сохранения заметок по ассету или нулевому алерту.
     Вызывается через AJAX при изменении поля заметок.
     """
     if request.method == 'POST':
         try:
             asset_id = request.POST.get('asset_id')
             notes = request.POST.get('notes', '')
+            is_placeholder = request.POST.get('is_placeholder', 'false') in ('true', '1', True)
             
             if not asset_id:
                 return JsonResponse({'error': 'asset_id not provided'}, status=400)
             
-            # Получаем ассет (должен принадлежать текущему пользователю)
-            asset = get_object_or_404(Asset, item_id=asset_id)
+            logger.info(f"save_asset_notes called: asset_id={asset_id}, notes_len={len(notes)}, is_placeholder={is_placeholder}, type_id={request.POST.get('type_id')}, location_id={request.POST.get('location_id')}")
             
-
+            # Получаем основного персонажа текущего пользователя
+            try:
+                character = UserProfile.objects.get(user=request.user).main_character
+                if not character:
+                    return JsonResponse({'error': 'Основной персонаж не назначен'}, status=400)
+            except UserProfile.DoesNotExist:
+                return JsonResponse({'error': 'UserProfile не найден'}, status=400)
             
-            # Сохраняем заметки
-            asset.notes = notes
-            asset.save()
-            
-            logger.info(f"User {request.user.id} saved notes for asset {asset_id}")
+            # Placeholder-ные ID начинаются с 'zero_{type_id}_{location_id}'
+            if is_placeholder or asset_id.startswith('zero_'):
+                # Это placeholderный нулевой алерт — сохраняем в ZeroAlertNote
+                type_id = request.POST.get('type_id')
+                location_id = request.POST.get('location_id')
+                
+                # Парсим из asset_id если не переданы
+                if not type_id or not location_id:
+                    if asset_id.startswith('zero_'):
+                        parts = asset_id[5:].rsplit('_', 1)
+                        if len(parts) == 2:
+                            type_id = parts[0]
+                            location_id = parts[1]
+                    
+                    if not type_id or not location_id:
+                        return JsonResponse({'error': 'type_id и location_id обязательны для placeholder'}, status=400)
+                
+                type_obj = get_object_or_404(EveItemType, type_id=type_id)
+                location_obj = get_object_or_404(EveLocation, location_id=location_id)
+                
+                ZeroAlertNote.objects.update_or_create(
+                    character=character,
+                    type_id=type_obj,
+                    location=location_obj,
+                    defaults={'note': notes}
+                )
+                logger.info(f"User {request.user.id} saved notes for zero alert: type_id={type_id}, location_id={location_id}")
+            else:
+                # Обычный ассет — сохраняем notes в Asset
+                asset = get_object_or_404(Asset, item_id=asset_id)
+                asset.notes = notes
+                asset.save()
+                logger.info(f"User {request.user.id} saved notes for asset {asset_id}")
             
             return JsonResponse({'success': True, 'notes': notes})
             

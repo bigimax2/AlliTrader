@@ -179,8 +179,8 @@
                                             {# Аккордеон для локаций внутри персонажа #}
                                             <div class="accordion accordion-theme" id="locationAccordion-{{ character_name|slugify }}">
                                                 {% for location_name, loc_hierarchy in locations.items %}
-                                                {# Пропускаем локации, где нет ни открытых ассетов, ни контейнеров #}
-                                                {% if loc_hierarchy.open_assets or loc_hierarchy.container_groups %}
+                                                {# Пропускаем локации, где нет ни открытых ассетов, ни контейнеров, ни нулевых алертов #}
+                                                {% if loc_hierarchy.open_assets or loc_hierarchy.container_groups or loc_hierarchy.zero_alerts %}
                                                 <div class="accordion-item accordion-item-theme">
                                                     <h2 class="accordion-header" id="heading-location-{{ character_name|slugify }}-{{ location_name|slugify }}">
                                                         <button class="accordion-button accordion-button-theme" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-location-{{ character_name|slugify }}-{{ location_name|slugify }}" aria-expanded="false" aria-controls="collapse-location-{{ character_name|slugify }}-{{ location_name|slugify }}">
@@ -190,6 +190,9 @@
                                                             {% endif %}
                                                             {% if loc_hierarchy.container_groups %}
                                                             <span class="badge bg-info ms-2">{{ loc_hierarchy.container_groups|length }} контейнеров</span>
+                                                            {% endif %}
+                                                            {% if loc_hierarchy.zero_alerts %}
+                                                            <span class="badge bg-purple ms-2">{{ loc_hierarchy.zero_alerts|length }} нул. алерт</span>
                                                             {% endif %}
                                                         </button>
                                                     </h2>
@@ -237,6 +240,49 @@
                                                                                 {% else %}
                                                                                     <td></td>
                                                                                 {% endif %}
+                                                                            </tr>
+                                                                            {% endfor %}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                            {% endif %}
+
+                                                            {# Нулевые алерты (min_quantity=0) #}
+                                                            {% if loc_hierarchy.zero_alerts %}
+                                                            <div class="mb-3 mt-3">
+                                                                <h6 class="text-purple"><i class="fas fa-bell"></i> Нулевые алерты (порог 0)</h6>
+                                                                <div class="table-responsive">
+                                                                    <table class="table table-striped table-hover table-theme">
+                                                                        <thead class="table-light thead-theme">
+                                                                            <tr>
+                                                                                <th>Название предмета</th>
+                                                                                <th>Количество</th>
+                                                                                <th>Порог</th>
+                                                                                <th>Алерт</th>
+                                                                                <th>Заметки</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            {% for zero_alert in loc_hierarchy.zero_alerts %}
+                                                                            <tr class="alert-zero">
+                                                                                <td>{{ zero_alert.type_name|default:"Неизвестно" }}{% if zero_alert.is_placeholder %}<small class="text-muted"> (нет в локации)</small>{% endif %}</td>
+                                                                                <td>0</td>
+                                                                                <td><span>{{ zero_alert.threshold }}</span></td>
+                                                                                <td>
+                                                                                    <span class="badge bg-purple">
+                                                                                        <i class="fas fa-exclamation-circle"></i> Нулевой алерт</span>
+                                                                                </td>
+                                                                                <td>
+                                                                                    <textarea 
+                                                                                        class="form-control form-control-sm notes-input notes-input-zero" 
+                                                                                        data-asset-id="{% if zero_alert.item_id %}{{ zero_alert.item_id }}{% else %}zero_{{ zero_alert.type_id }}_{{ zero_alert.location_id }}{% endif %}" 
+                                                                                        data-is-placeholder="{{ zero_alert.is_placeholder|lower }}"
+                                                                                        data-type-id="{{ zero_alert.type_id }}"
+                                                                                        data-location-id="{{ zero_alert.location_id }}"
+                                                                                        rows="1" 
+                                                                                        placeholder="Заметки...">{{ zero_alert.notes|default:"" }}</textarea>
+                                                                                </td>
                                                                             </tr>
                                                                             {% endfor %}
                                                                         </tbody>
@@ -809,6 +855,60 @@
             color: #ff6b6b !important;
         }
 
+        /* Стили для нулевых алертов (фиолетовый цвет) */
+        [data-theme="light"] .alert-zero,
+        [data-theme="light"] .alert-zero td {
+            background-color: #e8d5f5 !important;
+            border-left: 5px solid #7b1fa2 !important;
+            color: #4a148c !important;
+        }
+
+        [data-theme="dark"] .alert-zero,
+        [data-theme="dark"] .alert-zero td {
+            background-color: #1a002e !important;
+            border-left: 5px solid #9c27b0 !important;
+            color: #ce93d8 !important;
+        }
+
+        [data-theme="light"] .text-purple {
+            color: #7b1fa2 !important;
+        }
+
+        [data-theme="dark"] .text-purple {
+            color: #ce93d8 !important;
+        }
+
+        [data-theme="light"] .badge.bg-purple {
+            background-color: #7b1fa2 !important;
+            color: #fff !important;
+        }
+
+        [data-theme="dark"] .badge.bg-purple {
+            background-color: #9c27b0 !important;
+            color: #fff !important;
+        }
+
+        /* Стили для заметок нулевых алертов */
+        [data-theme="light"] .notes-input-zero {
+            background-color: #f3e5f5 !important;
+            border-color: #ce93d8 !important;
+        }
+
+        [data-theme="dark"] .notes-input-zero {
+            background-color: #2a0033 !important;
+            border-color: #9c27b0 !important;
+        }
+
+        [data-theme="light"] .notes-input-zero:focus {
+            border-color: #7b1fa2 !important;
+            box-shadow: 0 0 0 0.2rem rgba(123, 31, 162, 0.25) !important;
+        }
+
+        [data-theme="dark"] .notes-input-zero:focus {
+            border-color: #ab47bc !important;
+            box-shadow: 0 0 0 0.2rem rgba(156, 39, 176, 0.25) !important;
+        }
+
         /* Стили для аккордеона группировки по персонажам */
         [data-theme="light"] .accordion-theme .accordion-item-theme {
             background-color: #fff;
@@ -1244,15 +1344,24 @@
             $('.notes-input').on('input', function() {
                 const assetId = $(this).data('asset-id');
                 const notes = $(this).val();
+                const isPlaceholder = $(this).data('is-placeholder') === 'true';
+                
+                const postData = {
+                    'asset_id': assetId,
+                    'notes': notes,
+                    'is_placeholder': isPlaceholder,
+                    'csrfmiddlewaretoken': $('input[name=csrfmiddlewaretoken]').val()
+                };
+                
+                if (isPlaceholder) {
+                    postData['type_id'] = $(this).data('type-id');
+                    postData['location_id'] = $(this).data('location-id');
+                }
                 
                 $.ajax({
                     url: '{% url "observer_assets_all:save_asset_notes" %}',
                     method: 'POST',
-                    data: {
-                        'asset_id': assetId,
-                        'notes': notes,
-                        'csrfmiddlewaretoken': $('input[name=csrfmiddlewaretoken]').val()
-                    },
+                    data: postData,
                     dataType: 'json',
                     success: function(response) {
                         console.log('Заметки сохранены');
