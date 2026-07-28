@@ -98,6 +98,14 @@
                                 <a href="{% url 'observer_assets_single:export_alerts' %}" class="btn btn-sm btn-success" onclick="return confirm('Скачать резервную копию всех алертов?');">
                                     <i class="fas fa-download"></i> Скачать алерты
                                 </a>
+                                {% if thresholds_list %}
+                                <form method="post" action="{% url 'observer_assets_single:delete_all_alerts' %}" style="display: inline;" onsubmit="return confirm('Вы уверены, что хотите УДАЛИТЬ ВСЕ алерты? Это действие нельзя отменить!');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="fas fa-trash-alt"></i> Удалить все алерты
+                                    </button>
+                                </form>
+                                {% endif %}
                                 {% if show_inactive %}
                                 <a href="?show_inactive=false" class="btn btn-sm btn-info" onclick="return confirm('Скрыть отключенные алерты?');">
                                     <i class="fas fa-eye-slash"></i> Скрыть отключенные

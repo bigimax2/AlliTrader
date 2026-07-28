@@ -452,9 +452,7 @@ def render_traders(request):
                         elif qty < warning_threshold:
                             asset.alert_level = 'warning'
                             logger.info(f"  -> warning (qty={qty} <= {warning_threshold})")
-                        elif qty == thresh:
-                            asset.alert_level = 'warning'
-                            logger.info(f"  -> warning (qty={qty} = {thresh})")
+
                         else:
                             asset.alert_level = None
                             logger.info(f"  -> None (qty={qty} > {warning_threshold})")
@@ -1307,6 +1305,38 @@ def import_alerts(request):
         return redirect('observer_assets_single:alert_settings')
     
     # GET запрос - показываем форму
+    return redirect('observer_assets_single:alert_settings')
+
+
+@app_access_required(ObserverAssetsSingleConfig.name)
+@login_required
+def delete_all_alerts(request):
+    """Удаление всех алертов текущего пользователя"""
+    from authenticated.models import UserProfile
+    from observer_assets_single.models import AlertThreshold
+    
+    if request.method != 'POST':
+        messages.error(request, 'Неверный метод запроса')
+        return redirect('observer_assets_single:alert_settings')
+    
+    # Получаем main_character пользователя
+    try:
+        main_character = request.user.userprofile.main_character
+    except UserProfile.DoesNotExist:
+        messages.error(request, 'У вас нет основного персонажа')
+        return redirect('observer_assets_single:alert_settings')
+    
+    if not main_character:
+        messages.error(request, 'У вас нет основного персонажа')
+        return redirect('observer_assets_single:alert_settings')
+    
+    # Получаем количество удаляемых алертов
+    thresholds_count = AlertThreshold.objects.filter(character=main_character).count()
+    
+    # Удаляем все алерты
+    AlertThreshold.objects.filter(character=main_character).delete()
+    
+    messages.success(request, f'Удалено {thresholds_count} алертов')
     return redirect('observer_assets_single:alert_settings')
 
 
