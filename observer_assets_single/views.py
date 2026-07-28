@@ -9,7 +9,7 @@ from observer_assets_single.scopes_for_traders import SCOPES_FOR_TRADERS
 from observer_assets_single.tasks import get_personage_assets
 from EVE_Online_SQLite_API import get_stations_info, get_types_info
 from django.contrib.auth.decorators import login_required
-from observer_assets_single.models import EveItemType, AlertThreshold, EveLocation
+from observer_assets_single.models import EveItemType, AlertThreshold, EveLocation, ZeroAlertNote, ZeroAlertNote
 from eveonline.models import EveCharacter
 from esi.models import Token
 from django.contrib import messages
@@ -152,6 +152,7 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location):
     
     Ассеты на открытом пространстве локации отображаются отдельно.
     Ассеты внутри контейнеров группируются по контейнерам в аккордеоне.
+    Zero alerts (min_quantity=0) — если порог 0 и ассета в локации нет, создаётся placeholder-строка.
     
     Args:
         assets: queryset ассетов для одной локации
@@ -159,14 +160,15 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location):
         alert_thresholds_by_location: словарь {type_id: {location_id: min_quantity}} для локально-привязанных алертов
     
     Returns:
-        Словарь с двумя ключами:
+        Словарь с тремя ключами:
         - 'open_assets': список ассетов на открытом пространстве
         - 'container_groups': словарь {item_id: {'name': ..., 'assets': [...]}}
+        - 'zero_alerts': список словарей {type_id, type_name, location_id, threshold}
     """
     from observer_assets_single.models import Asset
     
     if not assets:
-        return {'open_assets': [], 'container_groups': {}}
+        return {'open_assets': [], 'container_groups': {}, 'zero_alerts': []}
     
     # Получаем item_id всех ассетов в текущей локации
     location_item_ids = [asset.item_id for asset in assets]
@@ -295,7 +297,65 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location):
     sorted_container_groups = dict(sorted(container_groups.items(), key=lambda x: x[1]['name']))
     container_groups = sorted_container_groups
     
-    return {'open_assets': open_assets, 'container_groups': container_groups}
+    # --- Обрабатываем нулевые алерты (min_quantity=0) ---
+    # Zero alert = порог 0, но ассета в локации НЕТ
+    location_id = None
+    if open_assets:
+        location_id = open_assets[0].location.location_id if open_assets[0].location else None
+    
+    zero_alerts = []
+    
+    # Собираем set всех type_id, которые ЕСТЬ в локации (открытые + контейнеры)
+    type_ids_present_in_location = set()
+    for asset in open_assets:
+        type_ids_present_in_location.add(asset.type_id.type_id)
+    for item_id, container_data in container_groups.items():
+        for container_asset in container_data.get('assets', []):
+            type_ids_present_in_location.add(container_asset.type_id.type_id)
+    
+    # Проверяем алерты с min_quantity=0
+    for type_id, loc_map in alert_thresholds_by_location.items():
+        if location_id and location_id in loc_map:
+            threshold = loc_map[location_id]
+            if int(threshold) == 0:
+                # Алерт с порогом 0 найден для этого type_id в этой локации
+                # Проверяем, есть ли ассет в локации
+                type_name = ''
+                
+                # Ищем ассет в открытых
+                for asset in open_assets:
+                    if asset.type_id.type_id == type_id:
+                        type_name = asset.type_id.type_name or ''
+                        break
+                
+                if not type_name:
+                    # Ищем в контейнерах
+                    for cont_item_id, container_data in container_groups.items():
+                        for container_asset in container_data.get('assets', []):
+                            if container_asset.type_id.type_id == type_id:
+                                type_name = container_asset.type_id.type_name or ''
+                                break
+                        if type_name:
+                            break
+                
+                # Если ассета НЕТ — это zero alert, добавляем placeholder
+                if not type_name:
+                    try:
+                        item_type = EveItemType.objects.get(type_id=type_id)
+                        type_name = item_type.type_name or f"Type ID: {type_id}"
+                    except Exception:
+                        type_name = f"Type ID: {type_id}"
+                    
+                    zero_alerts.append({
+                        'type_id': type_id,
+                        'type_name': type_name,
+                        'location_id': location_id,
+                        'threshold': int(threshold),
+                    })
+    
+    zero_alerts.sort(key=lambda x: x['type_name'])
+    
+    return {'open_assets': open_assets, 'container_groups': container_groups, 'zero_alerts': zero_alerts}
 
 
 @app_access_required(ObserverAssetsSingleConfig.name)
