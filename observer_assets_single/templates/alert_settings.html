@@ -40,6 +40,20 @@
     .modal-body {
         overflow: visible !important;
     }
+
+    /* Подсветка совпадений в поиске */
+    .search-match-highlight {
+        background-color: #fff3cd;
+        color: #856404;
+        font-weight: 600;
+        padding: 0 2px;
+        border-radius: 2px;
+    }
+
+    /* Подсветка строки с найденным алертом */
+    .search-highlight-row {
+        box-shadow: inset 4px 0 0 #ffc107;
+    }
 </style>
 <div class="container-fluid px-4 py-3">
     <div class="row mb-4">
@@ -116,8 +130,20 @@
                                 </a>
                                 {% endif %}
                             </div>
+                            <!-- Поиск по имени предмета -->
+                            <div class="mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control alert-search-input" id="alertSearchInput" placeholder="Поиск по имени предмета..." autocomplete="off">
+                                    <span class="input-group-text text-muted">
+                                        <i class="fas fa-filter"></i> <span id="searchCount">{{ thresholds_list|length }}</span> алертов
+                                    </span>
+                                </div>
+                            </div>
                             <div class="table-responsive">
-                                <table class="table table-striped table-hover table-theme">
+                                <table class="table table-striped table-hover table-theme" id="thresholdsTable">
                                     <thead class="table-light">
                                         <tr>
                                             <th>Предмет</th>
@@ -131,7 +157,7 @@
                                     </thead>
                                     <tbody>
                                         {% for threshold in thresholds_list %}
-                                        <tr id="threshold-{{ threshold.id }}" class="{% if not threshold.is_active %}table-secondary{% endif %} {% if threshold.min_quantity == 0 %}table-danger{% endif %}">
+                                        <tr id="threshold-{{ threshold.id }}" data-type-name="{{ threshold.type_name|escapejs }}" class="{% if not threshold.is_active %}table-secondary{% endif %} {% if threshold.min_quantity == 0 %}table-danger{% endif %}">
                                             <td>{{ threshold.type_name }}</td>
                                             <td>{{ threshold.location_name }}</td>
                                             <td>{{ threshold.group_name|default:"-" }}</td>
@@ -322,6 +348,95 @@ $(document).ready(function($) {
         console.error('Select2 is not loaded!');
     }
     
+    // Поиск по имени предмета (простой input без выпадающего списка)
+    var searchTimeout = null;
+    $('#alertSearchInput').on('input', function() {
+        var term = $(this).val().trim();
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function() {
+            groupAndHighlightRows(term);
+        }, 200);
+    });
+
+    // Очистка поиска при нажатии Esc
+    $('#alertSearchInput').on('keydown', function(e) {
+        if (e.key === 'Escape') {
+            $(this).val('');
+            groupAndHighlightRows('');
+            $(this).blur();
+        }
+    });
+
+    function groupAndHighlightRows(term) {
+        var rows = $('#thresholdsTable tbody tr');
+        var groupedData = {};
+        var matchedCount = 0;
+
+        rows.each(function() {
+            var $row = $(this);
+            var name = $row.data('type-name') || $row.find('td:first').text().trim();
+            var termLower = term.toLowerCase();
+            var nameLower = name.toLowerCase();
+            var isMatch = !term || nameLower.indexOf(termLower) !== -1;
+
+            // Убираем подсветку
+            $row.find('td:first').html(name);
+            $row.removeClass('table-warning search-highlight-row');
+
+            if (isMatch) {
+                $row.removeClass('table-secondary');
+                matchedCount++;
+
+                // Группировка по имени предмета
+                if (!groupedData[nameLower]) {
+                    groupedData[nameLower] = [];
+                }
+                groupedData[nameLower].push($row);
+
+                // Подсветка найденного текста
+                if (term) {
+                    var highlighted = highlightText(name, term);
+                    $row.find('td:first').html(highlighted);
+                }
+            } else {
+                $row.addClass('table-secondary');
+            }
+        });
+
+        // Сортировка и группировка строк
+        var sortedGroups = Object.keys(groupedData).sort();
+        var tbody = $('#thresholdsTable tbody');
+        sortedGroups.forEach(function(groupKey) {
+            var groupRows = groupedData[groupKey];
+            groupRows.forEach(function($row) {
+                tbody.append($row);
+            });
+        });
+
+        // Показываем только совпавшие строки
+        rows.each(function() {
+            var name = $(this).data('type-name').toLowerCase();
+            var termLower = term.toLowerCase();
+            var isMatch = !term || name.indexOf(termLower) !== -1;
+            $(this).toggle(isMatch);
+        });
+
+        $('#searchCount').text(matchedCount);
+    }
+
+    function highlightText(text, term) {
+        var termLower = term.toLowerCase();
+        var textLower = text.toLowerCase();
+        var index = textLower.indexOf(termLower);
+        if (index === -1) return text;
+
+        var before = text.substring(0, index);
+        var match = text.substring(index, index + term.length);
+        var after = text.substring(index + term.length);
+
+        return before + '<span class="search-match-highlight">' + match + '</span>' + after;
+    }
+
     // Получаем CSRF токен
     var csrfToken = $('input[name=csrfmiddlewaretoken]').val() || '{{ csrf_token }}';
     

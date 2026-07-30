@@ -224,11 +224,9 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location):
         if loc_id not in container_assets_map:
             container_assets_map[loc_id] = []
         container_assets_map[loc_id].append(content)
-        logger.info(f"Container content: item_id={content.item_id}, type_id={content.type_id.type_id}, location.location_id={loc_id}, is_singleton={content.is_singleton}")
-    
+
     # Копируем атрибут alert_level из исходных ассетов в ассеты из container_contents
-    # Это нужно, потому что container_contents - это новые объекты из БД без alert_level
-    logger.info(f"Kopirovka alert_level: container_assets_map keys={list(container_assets_map.keys())}")
+    # Это нужно, потому что container_contents - это новые объекты из БД без alert_levellogger.info(f"Kopirovka alert_level: container_assets_map keys={list(container_assets_map.keys())}")
     
     # Для каждого ассета внутри контейнера вычисляем alert_level заново по его количеству
     for item_id, assets_list in container_assets_map.items():
@@ -242,8 +240,7 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location):
             if type_id in alert_thresholds_by_location:
                 if location_id in alert_thresholds_by_location[type_id]:
                     threshold = alert_thresholds_by_location[type_id][location_id]
-                    logger.info(f"Container asset (loc-specific): item_id={asset.item_id}, type_id={type_id}, quantity={qty}, location_id={location_id}, threshold={threshold}")
-            
+
             if threshold is not None:
                 thresh = int(threshold)
                 critical_threshold = thresh * 0.25
@@ -251,19 +248,19 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location):
                 
                 if qty <= critical_threshold:
                     asset.alert_level = 'critical'
-                    logger.info(f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=critical")
+
                 elif qty <= warning_threshold:
                     asset.alert_level = 'warning'
-                    logger.info(f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=warning")
+
                 elif qty == thresh:
                     asset.alert_level = 'warning'
-                    logger.info(f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=warning (equal to threshold)")
+
                 else:
                     asset.alert_level = None
-                    logger.info(f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, alert_level=None")
+
             else:
                 asset.alert_level = None
-                logger.info(f"Container asset alert_level: item_id={asset.item_id}, type_id={type_id}, quantity={qty}, no threshold found - no coloring")
+
     
     # Затем обрабатываем исходные ассеты
     for asset in assets:
@@ -281,14 +278,14 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location):
                 'assets': sorted(container_assets_map[item_id], key=lambda x: x.type_id.type_name if x.type_id else ""),
                 'category_name': category_name
             }
-            logger.info(f"Found container: item_id={item_id}, name={container_name}, category_name={category_name}")
+
             # Логируем ассеты внутри контейнера
             for container_asset in container_assets_map[item_id]:
                 logger.info(f"  Container asset: item_id={container_asset.item_id}, type_id={container_asset.type_id.type_id}, quantity={container_asset.quantity}, alert_level={getattr(container_asset, 'alert_level', 'NOT SET')}")
         else:
             # Это ассет на открытом пространстве
             open_assets.append(asset)
-            logger.info(f"Open asset: item_id={item_id}, type_id={asset.type_id.type_id}, category_name={category_name}, alert_level={getattr(asset, 'alert_level', 'NOT SET')}")
+
     
     # Сортируем открытые ассеты по алфавиту
     open_assets = sorted(open_assets, key=lambda x: x.type_id.type_name if x.type_id else "")
@@ -727,6 +724,9 @@ def alert_settings(request):
             'created_at': at.created_at,
         })
     
+    # Сортируем по имени предмета по алфавиту
+    thresholds_list.sort(key=lambda x: x['type_name'])
+    
     return render(request, 'alert_settings.html', {
         'form': form,
         'all_types': all_types,
@@ -873,10 +873,6 @@ def edit_threshold(request):
     
     messages.error(request, 'Неверный запрос')
     return redirect('observer_assets_single:alert_settings')
-
-
-
-
 
 
 def parser_assets(assets, character):

@@ -1,10 +1,42 @@
 import logging
 from django.apps import apps
 from core.app_task import app_task
+from observer_assets_single.models import AlertThreshold
 from observer_assets_single.scopes_for_traders import SCOPES_FOR_TRADERS
 
 logger = logging.getLogger(__name__)
 
+@app_task()
+def check_alerts():
+    """
+    Проверяет активные алерты на наличие итемов в указанных локациях.
+    
+    Для каждого активного алерта:
+    - Проверяет, присутствует ли соответствующий итем в указанной локации.
+    - Если итем отсутствует в локации, устанавливает min_quantity=0,
+      чтобы триггерить нулевой алерт.
+    """
+    from observer_assets_single.models import AlertThreshold, Asset
+    
+    # Получаем все активные алерты
+    alerts = AlertThreshold.objects.filter(is_active=True)
+    
+    for alert in alerts:
+        # Проверяем, есть ли итем с таким type_id в указанной локации
+        item_exists = Asset.objects.filter(
+            type_id=alert.type_id,
+            location=alert.location
+        ).exists()
+        
+        if item_exists:
+            # Итем есть в локации — пропускаем, ничего менять не нужно
+            continue
+        else:
+            # Итема нет в локации — устанавливаем порог в 0,
+            # чтобы нулевой алерт сработал (ассет отсутствует)
+            alert.min_quantity = 0
+            alert.save()
+            
 
 @app_task()
 def get_personage_assets(token_id=None):
@@ -86,4 +118,5 @@ def get_personage_assets(token_id=None):
             logger.info(f"Ассеты успешно получены и обработаны для {eve_char.name}")
         except Exception as e:
             logger.exception(f"Ошибка получения ассетов у {eve_char.name} (ID: {eve_char.character_id}): {str(e)}")
+
     return True

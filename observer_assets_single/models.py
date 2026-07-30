@@ -186,11 +186,3 @@ class ZeroAlertNote(models.Model):
         location_name = self.location.location_name if self.location else "Неизвестно"
         character_name = self.character.name if self.character else "Неизвестно"
         return f"{character_name} - {type_name} @ {location_name}"
-
-
-    def __str__(self):
-        type_name = self.type_id.type_name if self.type_id else "Неизвестно"
-        location_name = self.location.location_name if self.location else "Все локации"
-        character_name = self.character.name if self.character else "Неизвестно"
-        status = "✓" if self.is_active else "✗"
-        return f"{status} {character_name} - {type_name} @ {location_name}: {self.min_quantity}"
