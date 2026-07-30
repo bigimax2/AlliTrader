@@ -1,1071 +1,578 @@
 {% extends 'index.html' %}
-{% load static %}
-{% load custom_filters %}
 {% block content %}
-    <!-- Секция формы выбора локаций -->
-    <div class="container-fluid px-4 py-3">
-        {% if has_valid_token %}
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card card-theme">
-                    <div class="card-header card-header-theme">
-                        <h5 class="mb-0"><i class="fas fa-map-marker-alt"></i> Выбор локаций</h5>
-                    </div>
-                    <div class="card-body card-body-theme">
-                        <form method="post">
-                            {% csrf_token %}
-                            <div class="row">
-                                <div class="col-12 col-md-6 col-lg-3">
-                                    <div class="form-group mb-3">
-                                        {{ form.character.errors }}
-                                        <label for="{{ form.character.id_for_label }}" class="form-label form-label-theme">
-                                            <i class="fas fa-user-circle"></i> {{ form.character.label }}
-                                        </label>
-                                        <div class="border rounded p-2 character-container">
-                                            {{ form.character }}
-                                        </div>
-                                        <small class="form-text text-muted">{{ form.character.help_text }}</small>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-md-6 col-lg-3">
-                                    <div class="form-group mb-3">
-                                        {{ form.locations.errors }}
-                                        <label for="{{ form.locations.id_for_label }}" class="form-label form-label-theme">
-                                            <i class="fas fa-map-marker-alt"></i> {{ form.locations.label }}
-                                        </label>
-                                        <div class="border rounded p-2 locations-container">
-                                            <div class="mb-2">
-                                                <input type="text" id="locationSearch" class="form-control form-control-sm search-input-theme" placeholder="Поиск по названию...">
-                                            </div>
-                                            <div class="locations-list-container">
-                                                {{ form.locations }}
-                                            </div>
-                                        </div>
-                                        <small class="form-text text-muted">{{ form.locations.help_text }}</small>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-md-6 col-lg-3">
-                                    <div class="form-group mb-3">
-                                        {{ form.location_flag.errors }}
-                                        <label for="{{ form.location_flag.id_for_label }}" class="form-label form-label-theme">
-                                            <i class="fas fa-tag"></i> {{ form.location_flag.label }}
-                                        </label>
-                                        <div class="border rounded p-2 flag-container">
-                                            {{ form.location_flag }}
-                                        </div>
-                                        <small class="form-text text-muted">{{ form.location_flag.help_text }}</small>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-md-6 col-lg-3">
-                                    <div class="form-group mb-3">
-                                        {{ form.is_singleton.errors }}
-                                        <label for="{{ form.is_singleton.id_for_label }}" class="form-label form-label-theme">
-                                            <i class="fas fa-cubes"></i> {{ form.is_singleton.label }}
-                                        </label>
-                                        <div class="border rounded p-2">
-                                            {{ form.is_singleton }}
-                                        </div>
-                                        <small class="form-text text-muted">{{ form.is_singleton.help_text }}</small>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-md-6 col-lg-3">
-                                    <div class="form-group mb-3">
-                                        {{ form.show_chized_ships.errors }}
-                                        <label for="{{ form.show_chized_ships.id_for_label }}" class="form-label form-label-theme">
-                                            <i class="fas fa-eye"></i> {{ form.show_chized_ships.label }}
-                                        </label>
-                                        <div class="border rounded p-2">
-                                            {{ form.show_chized_ships }}
-                                        </div>
-                                        <small class="form-text text-muted">{{ form.show_chized_ships.help_text }}</small>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-md-6 col-lg-3">
-                                    <div class="form-group mb-3">
-                                        {{ form.category_name.errors }}
-                                        <label for="{{ form.category_name.id_for_label }}" class="form-label form-label-theme">
-                                            <i class="fas fa-layer-group"></i> {{ form.category_name.label }}
-                                        </label>
-                                        <div class="border rounded p-2 category-container">
-                                            {{ form.category_name }}
-                                        </div>
-                                        <small class="form-text text-muted">{{ form.category_name.help_text }}</small>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-md-6 col-lg-3">
-                                    <div class="form-group mb-3">
-                                        {{ form.group_name.errors }}
-                                        <label for="{{ form.group_name.id_for_label }}" class="form-label form-label-theme">
-                                            <i class="fas fa-th-list"></i> {{ form.group_name.label }}
-                                        </label>
-                                        <div class="border rounded p-2 group-container">
-                                            {{ form.group_name }}
-                                        </div>
-                                        <small class="form-text text-muted">{{ form.group_name.help_text }}</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row mt-3">
-                                <div class="col-12">
-                                    <button type="submit" class="btn btn-success btn-theme">
-                                        <i class="fas fa-save"></i> Сохранить выбор
-                                    </button>
-                                    <a href="{% url 'observer_assets_single:get_token_assets' %}" class="btn btn-primary btn-theme">
-                                        <i class="fas fa-sync-alt"></i> Обновить/зарегистрировать токен
-                                    </a>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% else %}
-        <!-- Если нет токена с нужными scopes - только кнопка обновления -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card card-theme">
-                    <div class="card-header card-header-theme">
-                        <h5 class="mb-0"><i class="fas fa-info-circle"></i> Ограничение доступа</h5>
-                    </div>
-                    <div class="card-body card-body-theme">
-                        <div class="alert alert-warning alert-theme">
-                            <i class="fas fa-exclamation-triangle"></i> У вас нет токена с правами 'esi-assets.read_assets.v1'.
-                            Для получения доступа к форме фильтрации ассетов необходимо авторизовать хотя бы одного персонажа с нужными scopes.
-                        </div>
-                        <div class="d-flex justify-content-center gap-2">
-                            <a href="{% url 'observer_assets_single:get_token_assets' %}" class="btn btn-primary btn-theme">
-                                <i class="fas fa-sync-alt"></i> Обновить ассеты (авторизовать персонажа)
-                            </a>
-                            <a href="{% url 'observer_assets:assets_overview' %}" class="btn btn-secondary btn-theme">
-                                <i class="fas fa-clipboard-list"></i> Все ассеты
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
+<style>
+    /* Корректировка z-index для Select2 в модальных окнах */
+    /* Bootstrap 5 modal имеет z-index: 1055 */
+    /* Select2 dropdown должен быть поверх */
+    body .select2-container {
+        z-index: 1065 !important;
+    }
+    
+    body .select2-container--open {
+        z-index: 1065 !important;
+    }
+    
+    body .select2-dropdown {
+        z-index: 1066 !important;
+    }
+    
+    body .select2-drop {
+        z-index: 1065 !important;
+    }
+    
+    body .select2-drop-mask {
+        z-index: 1059 !important;
+    }
+    
+    body .select2-results__option {
+        z-index: 1065 !important;
+    }
+    
+    /* z-index для поля поиска Select2 */
+    body .select2-search__field {
+        z-index: 1066 !important;
+    }
+    
+    /* Убираем overflow: hidden у модального окна, чтобы Select2 работал корректно */
+    .modal-content {
+        overflow: visible !important;
+    }
+    .modal-body {
+        overflow: visible !important;
+    }
 
-        <!-- Секция отображения ассетов персонажа -->
-        {% if has_valid_token %}
-        <div class="row">
-            <div class="col-12">
-                <div class="card card-theme">
-                    <div class="card-header card-header-theme">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0"><i class="fas fa-users"></i> Ассеты персонажей ({{ user_characters|length }} персонажей)</h5>
-                            <div class="d-flex gap-2">
-                                <a href="{% url 'observer_assets:assets_overview' %}" class="btn btn-outline-primary btn-theme btn-sm">
-                                    <i class="fas fa-clipboard-list"></i> Все ассеты
+    /* Подсветка совпадений в поиске */
+    .search-match-highlight {
+        background-color: #fff3cd;
+        color: #856404;
+        font-weight: 600;
+        padding: 0 2px;
+        border-radius: 2px;
+    }
+
+    /* Подсветка строки с найденным алертом */
+    .search-highlight-row {
+        box-shadow: inset 4px 0 0 #ffc107;
+    }
+</style>
+<div class="container-fluid px-4 py-3">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card card-theme">
+                <div class="card-header card-header-theme">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Настройки алертов</h5>
+                </div>
+
+                <div class="card-body card-body-theme">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Добавить новый порог</h6>
+                            <form method="post" id="alertForm" action="{% url 'observer_assets_single:alert_settings' %}">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    {{ form.type_id.errors }}
+                                    <label for="{{ form.type_id.id_for_label }}" class="form-label form-label-theme">
+                                        <i class="fas fa-cube"></i> {{ form.type_id.label }}
+                                    </label>
+                                    {{ form.type_id }}
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle"></i> Выберите предмет из списка{% if existing_type_ids %} (при повторном выборе порог будет обновлен){% endif %}
+                                    </small>
+                                </div>
+                                <div class="mb-3">
+                                    {{ form.min_quantity.errors }}
+                                    <label for="{{ form.min_quantity.id_for_label }}" class="form-label form-label-theme">
+                                        {{ form.min_quantity.label }}
+                                    </label>
+                                    {{ form.min_quantity }}
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle"></i> При достижении этого количества предметов будет показан алерт. Желтый: ниже порога хотя бы на 1, Красный: ниже половины порога. <strong>Обязательно больше или равно 0.</strong>
+                                    </small>
+                                </div>
+                                <div class="mb-3">
+                                    {{ form.location.errors }}
+                                    <label for="{{ form.location.id_for_label }}" class="form-label form-label-theme">
+                                        {{ form.location.label }}
+                                    </label>
+                                    {{ form.location }}
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle"></i> Выберите локацию для алерта (оставьте пустым - алерт будет глобальным)
+                                    </small>
+                                </div>
+                                <button type="submit" class="btn btn-success btn-theme">
+                                    <i class="fas fa-save"></i> Сохранить порог
+                                </button>
+                            </form>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Управление существующими порогами</h6>
+                            {% if thresholds_list %}
+                            <div class="alert alert-warning alert-theme mb-3">
+                                <i class="fas fa-exclamation-triangle"></i> 
+                                <strong>Бэкап:</strong> 
+                                <a href="{% url 'observer_assets_single:export_alerts' %}" class="btn btn-sm btn-success" onclick="return confirm('Скачать резервную копию всех алертов?');">
+                                    <i class="fas fa-download"></i> Скачать алерты
                                 </a>
+                                {% if thresholds_list %}
+                                <form method="post" action="{% url 'observer_assets_single:delete_all_alerts' %}" style="display: inline;" onsubmit="return confirm('Вы уверены, что хотите УДАЛИТЬ ВСЕ алерты? Это действие нельзя отменить!');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="fas fa-trash-alt"></i> Удалить все алерты
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% if show_inactive %}
+                                <a href="?show_inactive=false" class="btn btn-sm btn-info" onclick="return confirm('Скрыть отключенные алерты?');">
+                                    <i class="fas fa-eye-slash"></i> Скрыть отключенные
+                                </a>
+                                {% else %}
+                                <a href="?show_inactive=true" class="btn btn-sm btn-info" onclick="return confirm('Показать отключенные алерты?');">
+                                    <i class="fas fa-eye"></i> Показать отключенные
+                                </a>
+                                {% endif %}
                             </div>
-                        </div>
-                    </div>
-                    <div class="card-body card-body-theme">
-                        {% if locations_selected %}
-                        <div class="alert alert-info alert-theme">
-                            <i class="fas fa-info-circle"></i> Выбрано локаций: {{ locations_selected|length }}
-                        </div>
-                        {% endif %}
-                        {% if assets %}
-                        <div class="table-responsive table-responsive-theme">
-                            {% regroup assets by character.name as character_assets %}
-                            {% for character_group in character_assets %}
-                            <div class="asset-character-section mb-4">
-                                <div class="card card-theme asset-character-card">
-                                    <div class="card-header card-header-theme asset-character-header" data-bs-toggle="collapse" data-bs-target="#character-{{ character_group.grouper|slugify }}" style="cursor: pointer;">
-                                        <h5 class="mb-0">
-                                            <i class="fas fa-user-circle"></i> {{ character_group.grouper|default:"Неизвестно" }}
-                                            <span class="badge bg-secondary float-end">{{ character_group.list|length }} активов</span>
-                                        </h5>
-                                    </div>
-                                    <div id="character-{{ character_group.grouper|slugify }}" class="collapse"> <!---Если надо сделать открытыми карточки по умолчанию изменить class="collapse show"--->
-                                        <div class="card-body card-body-theme asset-character-body">
-                                            {% regroup character_group.list by location.location_name as location_assets %}
-                                            {% for location_group in location_assets %}
-                                            {% with location_id=location_group.list.0.location.location_id %}
-                                            {% with location_name=location_group.grouper %}
-                                            <div class="asset-location-section mb-3">
-                                                <div class="card card-theme asset-location-card">
-                                                    <div class="card-header card-header-theme asset-location-header" data-bs-toggle="collapse" data-bs-target="#location-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}" style="cursor: pointer;">
-                                                        <h5 class="mb-0">
-                                                            <i class="fas fa-map-marker-alt"></i> {{ location_name|default:"Неизвестно" }}
-                                                            <span class="badge bg-secondary float-end">{{ location_group.list|length }} предметов</span>
-                                                        </h5>
-                                                    </div>
-                                                    <div id="location-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}" class="collapse">
-                                                        <div class="card-body card-body-theme asset-location-body">
-                                                            {% if location_data %}
-                                                            {# Используем аккордеон для группировки ассетов #}
-                                                            {% with location_data|get_item:location_id as loc_hierarchy %}
-                                                            {% if loc_hierarchy %}
-                                                            {% if loc_hierarchy.container_groups %}
-                                                            {# Есть контейнеры: показываем открытые ассеты и аккордеон контейнеров #}
-                                                            {# Ассеты на открытом пространстве #}
-                                                            {% if loc_hierarchy.open_assets %}
-                                                            <div class="mb-3">
-                                                                <h6 class="text-success"><i class="fas fa-globe"></i> Открытый склад ({{ location_name }})</h6>
-                                                                <div class="table-responsive">
-                                                                    <table class="table table-striped table-hover table-theme">
-                                                                        <thead class="table-light thead-theme">
-                                                                            <tr>
-                                                                                <th>Название предмета</th>
-                                                                                <th>Категория</th>
-                                                                                <th>Группа</th>
-                                                                                <th>Количество</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                            {% for asset in loc_hierarchy.open_assets %}
-                                                                            {% if asset.alert_level == 'critical' %}
-                                                                            <tr class="alert-critical">
-                                                                            {% elif asset.alert_level == 'warning' %}
-                                                                            <tr class="alert-warning">
-                                                                            {% else %}
-                                                                            <tr>
-                                                                            {% endif %}
-                                                                                <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
-                                                                                <td>{{ asset.type_id.category_name|default:"-" }}</td>
-                                                                                <td>{{ asset.type_id.group_name|default:"-" }}</td>
-                                                                                <td>{{ asset.quantity }}</td>
-                                                                            </tr>
-                                                                            {% endfor %}
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
-                                                            </div>
-                                                            {% endif %}
-                                                            
-                                                            {# Аккордеон для контейнеров #}
-                                                            <div class="accordion accordion-theme" id="containerAccordion-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}">
-                                                                {% for item_id, container_data in loc_hierarchy.container_groups.items %}
-                                                                <div class="accordion-item accordion-item-theme">
-                                                                    <h2 class="accordion-header" id="heading-{{ item_id }}">
-                                                                        <button class="accordion-button accordion-button-theme" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ item_id }}" aria-expanded="false" aria-controls="collapse-{{ item_id }}">
-                                                                            <i class="fas fa-cube"></i><span class="ms-2"></span> {{ container_data.name }}
-                                                                            <span class="badge bg-secondary ms-2">{{ container_data.assets|length }} предметов</span>
-                                                                        </button>
-                                                                    </h2>
-                                                                    <div id="collapse-{{ item_id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ item_id }}" data-bs-parent="#containerAccordion-{{ location_group.grouper|slugify }}-{{ character_group.grouper|slugify }}">
-                                                                        <div class="accordion-body accordion-body-theme">
-                                                                            <div class="table-responsive">
-                                                                                <table class="table table-striped table-hover table-theme">
-                                                                                    <thead class="table-light thead-theme">
-                                                                                        <tr>
-                                                                                            <th>Название предмета</th>
-                                                                                            <th>Категория</th>
-                                                                                            <th>Группа</th>
-                                                                                            <th>Количество</th>
-                                                                                        </tr>
-                                                                                    </thead>
-                                                                                    <tbody>
-                                                                                        {% for asset in container_data.assets %}
-                                                                                        {% if asset.alert_level == 'critical' %}
-                                                                                        <tr class="alert-critical">
-                                                                                        {% elif asset.alert_level == 'warning' %}
-                                                                                        <tr class="alert-warning">
-                                                                                        {% else %}
-                                                                                        <tr>
-                                                                                        {% endif %}
-                                                                                            <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
-                                                                                            <td>{{ asset.type_id.category_name|default:"-" }}</td>
-                                                                                            <td>{{ asset.type_id.group_name|default:"-" }}</td>
-                                                                                            <td>{{ asset.quantity }}</td>
-                                                                                        </tr>
-                                                                                        {% endfor %}
-                                                                                    </tbody>
-                                                                                </table>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                                {% endfor %}
-                                                            </div>
-                                                            {% else %}
-                                                            {# Нет иерархии или пустая - показываем все ассеты в одной таблице #}
-                                                            <div class="table-responsive">
-                                                                <table class="table table-striped table-hover table-theme">
-                                                                    <thead class="table-light thead-theme">
-                                                                        <tr>
-                                                                            <th>Название предмета</th>
-                                                                            <th>Категория</th>
-                                                                            <th>Группа</th>
-                                                                            <th>Количество</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        {% for asset in location_group.list %}
-                                                                        {% if asset.alert_level == 'critical' %}
-                                                                        <tr class="alert-critical">
-                                                                        {% elif asset.alert_level == 'warning' %}
-                                                                        <tr class="alert-warning">
-                                                                        {% else %}
-                                                                        <tr>
-                                                                        {% endif %}
-                                                                            <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
-                                                                            <td>{{ asset.type_id.category_name|default:"-" }}</td>
-                                                                            <td>{{ asset.type_id.group_name|default:"-" }}</td>
-                                                                            <td>{{ asset.quantity }}</td>
-                                                                        </tr>
-                                                                        {% endfor %}
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
-                                                            {% endif %}
-                                                            
-                                                            {# Zero alerts - placeholder rows для отсутствующих предметов с min_quantity=0 #}
-                                                            {% if loc_hierarchy.zero_alerts %}
-                                                            <div class="mb-3">
-                                                                <h6 class="text-purple"><i class="fas fa-ghost"></i> Нулевые алерты (отсутствуют в локации)</h6>
-                                                                <div class="table-responsive">
-                                                                    <table class="table table-striped table-hover table-theme">
-                                                                        <thead class="table-light thead-theme">
-                                                                            <tr>
-                                                                                <th>Название предмета</th>
-                                                                                <th>Категория</th>
-                                                                                <th>Группа</th>
-                                                                                <th>Количество</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                            {% for zero_alert in loc_hierarchy.zero_alerts %}
-                                                                            <tr class="alert-zero">
-                                                                                <td>{{ zero_alert.type_name }}</td>
-                                                                                <td>-</td>
-                                                                                <td>-</td>
-                                                                                <td>0</td>
-                                                                            </tr>
-                                                                            {% endfor %}
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
-                                                            </div>
-                                                            {% endif %}
-                                                            {% else %}
-                                                            {# Если иерархия не найдена, используем старый метод #}
-                                                            <div class="table-responsive">
-                                                                <table class="table table-striped table-hover table-theme">
-                                                                    <thead class="table-light thead-theme">
-                                                                        <tr>
-                                                                            <th>Название предмета</th>
-                                                                            <th>Категория</th>
-                                                                            <th>Группа</th>
-                                                                            <th>Количество</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        {% for asset in location_group.list %}
-                                                                        {% if asset.alert_level == 'critical' %}
-                                                                        <tr class="alert-critical">
-                                                                        {% elif asset.alert_level == 'warning' %}
-                                                                        <tr class="alert-warning">
-                                                                        {% else %}
-                                                                        <tr>
-                                                                        {% endif %}
-                                                                            <td>{{ asset.type_id.type_name|default:"Неизвестно" }}</td>
-                                                                            <td>{{ asset.type_id.category_name|default:"-" }}</td>
-                                                                            <td>{{ asset.type_id.group_name|default:"-" }}</td>
-                                                                            <td>{{ asset.quantity }}</td>
-                                                                        </tr>
-                                                                        {% endfor %}
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
-                                                            {% endif %}
-                                                            {% endwith %}
-                                                            {% endif %}
-                                            {% endwith %}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            {% endwith %}
-                                            {% endfor %}
-                                        </div>
-                                    </div>
+                            <!-- Поиск по имени предмета -->
+                            <div class="mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control alert-search-input" id="alertSearchInput" placeholder="Поиск по имени предмета..." autocomplete="off">
+                                    <span class="input-group-text text-muted">
+                                        <i class="fas fa-filter"></i> <span id="searchCount">{{ thresholds_list|length }}</span> алертов
+                                    </span>
                                 </div>
                             </div>
-                            {% endfor %}
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover table-theme" id="thresholdsTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Предмет</th>
+                                            <th>Локация</th>
+                                            <th>Группа</th>
+                                            <th>Категория</th>
+                                            <th>Мин. кол-во</th>
+                                            <th>Активен</th>
+                                            <th>Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for threshold in thresholds_list %}
+                                        <tr id="threshold-{{ threshold.id }}" data-type-name="{{ threshold.type_name|escapejs }}" class="{% if not threshold.is_active %}table-secondary{% endif %} {% if threshold.min_quantity == 0 %}table-danger{% endif %}">
+                                            <td>{{ threshold.type_name }}</td>
+                                            <td>{{ threshold.location_name }}</td>
+                                            <td>{{ threshold.group_name|default:"-" }}</td>
+                                            <td>{{ threshold.category_name|default:"-" }}</td>
+                                            <td id="quantity-{{ threshold.id }}">{{ threshold.min_quantity }}</td>
+                                            <td>
+                                                <div class="form-check">
+                                                    <input class="form-check-input toggle-active" type="checkbox" 
+                                                           data-threshold-id="{{ threshold.id }}"
+                                                           data-toggle-url="{% url 'observer_assets_single:toggle_alert_active' threshold_id=threshold.id %}"
+                                                           {% if threshold.is_active %}checked{% endif %}>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-primary btn-theme edit-threshold" data-threshold-id="{{ threshold.id }}" data-threshold-quantity="{{ threshold.min_quantity }}" data-threshold-name="{{ threshold.type_name|escapejs }}" data-threshold-active="{{ threshold.is_active }}" data-threshold-location="{{ threshold.location_id|default:'' }}" data-bs-toggle="modal" data-bs-target="#editModal">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <form method="post" action="{% url 'observer_assets_single:delete_threshold' %}" style="display: inline;" onsubmit="return confirm('Вы уверены, что хотите удалить этот порог?');">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="threshold_id" value="{{ threshold.id }}">
+                                                    <button type="submit" class="btn btn-sm btn-danger btn-theme delete-threshold">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info alert-theme">
+                                <i class="fas fa-info-circle"></i> Нет настроенных порогов. Добавьте свои пороги в форме выше.
+                            </div>
+                            {% endif %}
                         </div>
-                        {% else %}
-                        <div class="alert alert-warning alert-theme">
-                            <i class="fas fa-exclamation-triangle"></i> Ассеты не загружены. Нажмите "Обновить ассеты" для получения данных.
-                        </div>
-                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
-        {% endif %}
     </div>
 
-    {% block page_styles %}
-    <style>
-        /* Стили для формы выбора локаций с поддержкой тем */
-        [data-theme="light"] .card-theme {
-            background-color: #ffffff;
-            border: 1px solid rgba(0, 0, 0, 0.125);
-        }
-
-        [data-theme="dark"] .card-theme {
-            background-color: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.125);
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
-        }
-
-        [data-theme="light"] .card-header-theme {
-            background-color: #f8f9fa;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
-            color: #212529;
-        }
-
-        [data-theme="dark"] .card-header-theme {
-            background-color: var(--card-header-bg);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.125);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .card-body-theme {
-            background-color: #ffffff;
-            color: #212529;
-        }
-
-        [data-theme="dark"] .card-body-theme {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .form-label-theme {
-            color: #212529;
-        }
-
-        [data-theme="dark"] .form-label-theme {
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .locations-container {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            color: #212529;
-        }
-
-        [data-theme="dark"] .locations-container {
-            background-color: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.125);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .locations-container label {
-            color: #212529;
-            cursor: pointer;
-        }
-
-        [data-theme="dark"] .locations-container label {
-            color: var(--text-color);
-            cursor: pointer;
-        }
-
-        [data-theme="light"] .locations-container label:hover {
-            background-color: #e9ecef;
-        }
-
-        [data-theme="dark"] .locations-container label:hover {
-            background-color: var(--hover-bg);
-        }
-
-        [data-theme="light"] .locations-help {
-            color: #6c757d;
-        }
-
-        [data-theme="dark"] .locations-help {
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .btn-theme {
-            color: #fff;
-            background-color: #198754;
-            border-color: #198754;
-        }
-
-        [data-theme="dark"] .btn-theme {
-            color: #fff;
-            background-color: #198754;
-            border-color: #198754;
-        }
-
-        [data-theme="light"] .btn-theme:hover {
-            background-color: #157347;
-            border-color: #146c43;
-        }
-
-        [data-theme="dark"] .btn-theme:hover {
-            background-color: #157347;
-            border-color: #146c43;
-        }
-
-        [data-theme="light"] .alert-theme {
-            background-color: #d1ecf1;
-            border-color: #bee5eb;
-            color: #0c5460;
-        }
-
-        [data-theme="dark"] .alert-theme {
-            background-color: var(--card-bg);
-            border-color: rgba(255, 255, 255, 0.125);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .table-responsive-theme {
-            border: 1px solid rgba(0, 0, 0, 0.125);
-        }
-
-        [data-theme="dark"] .table-responsive-theme {
-            border: 1px solid rgba(255, 255, 255, 0.125);
-        }
-
-        [data-theme="light"] .table-theme {
-            color: #212529;
-        }
-
-        [data-theme="dark"] .table-theme {
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .table-theme thead th {
-            background-color: #e9ecef;
-            color: #495057;
-        }
-
-        [data-theme="dark"] .table-theme thead th {
-            background-color: var(--card-header-bg);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .table-theme tbody tr:hover {
-            background-color: rgba(0, 0, 0, 0.075);
-        }
-
-        [data-theme="dark"] .table-theme tbody tr:hover {
-            background-color: rgba(255, 255, 255, 0.075);
-        }
-
-        /* Стили для поиска и списка локаций */
-        [data-theme="light"] .search-input-theme {
-            background-color: #fff;
-            border: 1px solid #ced4da;
-            color: #212529;
-        }
-
-        [data-theme="dark"] .search-input-theme {
-            background-color: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.125);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .locations-list-container {
-            max-height: 300px;
-            overflow-y: auto;
-            background-color: #fff;
-        }
-
-        [data-theme="dark"] .locations-list-container {
-            max-height: 300px;
-            overflow-y: auto;
-            background-color: var(--card-bg);
-        }
-
-        [data-theme="light"] .locations-list-container select {
-            background-color: #fff;
-            color: #212529;
-        }
-
-        [data-theme="dark"] .locations-list-container select {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .locations-list-container option {
-            background-color: #fff;
-            color: #212529;
-            padding: 5px 10px;
-        }
-
-        [data-theme="dark"] .locations-list-container option {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-            padding: 5px 10px;
-        }
-
-        [data-theme="light"] .locations-list-container option:hover {
-            background-color: #e9ecef;
-        }
-
-        [data-theme="dark"] .locations-list-container option:hover {
-            background-color: var(--hover-bg);
-        }
-
-        [data-theme="light"] .locations-list-container option:checked {
-            background-color: #0d6efd;
-            color: #fff;
-        }
-
-        [data-theme="dark"] .locations-list-container option:checked {
-            background-color: #4dabf7;
-            color: #000;
-        }
-
-        /* Стили для flag-container */
-        [data-theme="light"] .flag-container {
-            background-color: #fff;
-            border: 1px solid #ced4da;
-            color: #212529;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        [data-theme="dark"] .flag-container {
-            background-color: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.125);
-            color: var(--text-color);
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        [data-theme="light"] .flag-container select {
-            background-color: #fff;
-            color: #212529;
-        }
-
-        [data-theme="dark"] .flag-container select {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .flag-container option {
-            background-color: #fff;
-            color: #212529;
-            padding: 5px 10px;
-        }
-
-        [data-theme="dark"] .flag-container option {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-            padding: 5px 10px;
-        }
-
-        [data-theme="light"] .flag-container option:hover {
-            background-color: #e9ecef;
-        }
-
-        [data-theme="dark"] .flag-container option:hover {
-            background-color: var(--hover-bg);
-        }
-
-        [data-theme="light"] .flag-container option:checked {
-            background-color: #0d6efd;
-            color: #fff;
-        }
-
-        [data-theme="dark"] .flag-container option:checked {
-            background-color: #4dabf7;
-            color: #000;
-        }
-
-        /* Стили для category-container и group-container */
-        [data-theme="light"] .category-container, [data-theme="light"] .group-container {
-            background-color: #fff;
-            border: 1px solid #ced4da;
-            color: #212529;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-
-        [data-theme="dark"] .category-container, [data-theme="dark"] .group-container {
-            background-color: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.125);
-            color: var(--text-color);
-            max-height: 150px;
-            overflow-y: auto;
-        }
-
-        [data-theme="light"] .category-container select, [data-theme="light"] .group-container select {
-            background-color: #fff;
-            color: #212529;
-        }
-
-        [data-theme="dark"] .category-container select, [data-theme="dark"] .group-container select {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .category-container option, [data-theme="light"] .group-container option {
-            background-color: #fff;
-            color: #212529;
-            padding: 5px 10px;
-        }
-
-        [data-theme="dark"] .category-container option, [data-theme="dark"] .group-container option {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-            padding: 5px 10px;
-        }
-
-        [data-theme="light"] .category-container option:hover, [data-theme="light"] .group-container option:hover {
-            background-color: #e9ecef;
-        }
-
-        [data-theme="dark"] .category-container option:hover, [data-theme="dark"] .group-container option:hover {
-            background-color: var(--hover-bg);
-        }
-
-        [data-theme="light"] .category-container option:checked, [data-theme="light"] .group-container option:checked {
-            background-color: #0d6efd;
-            color: #fff;
-        }
-
-        [data-theme="dark"] .category-container option:checked, [data-theme="dark"] .group-container option:checked {
-            background-color: #4dabf7;
-            color: #000;
-        }
-
-        /* Стили для character-container */
-        [data-theme="light"] .character-container {
-            background-color: #fff;
-            border: 1px solid #ced4da;
-            color: #212529;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        [data-theme="dark"] .character-container {
-            background-color: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.125);
-            color: var(--text-color);
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        [data-theme="light"] .character-container select {
-            background-color: #fff;
-            color: #212529;
-        }
-
-        [data-theme="dark"] .character-container select {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .character-container option {
-            background-color: #fff;
-            color: #212529;
-            padding: 5px 10px;
-        }
-
-        [data-theme="dark"] .character-container option {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-            padding: 5px 10px;
-        }
-
-        [data-theme="light"] .character-container option:hover {
-            background-color: #e9ecef;
-        }
-
-        [data-theme="dark"] .character-container option:hover {
-            background-color: var(--hover-bg);
-        }
-
-        [data-theme="light"] .character-container option:checked {
-            background-color: #0d6efd;
-            color: #fff;
-        }
-
-        [data-theme="dark"] .character-container option:checked {
-            background-color: #4dabf7;
-            color: #000;
-        }
-
-        /* Стили для секций персонажей */
-        [data-theme="light"] .asset-character-card {
-            background-color: #fff;
-            border: 1px solid rgba(0, 0, 0, 0.125);
-            margin-bottom: 10px;
-        }
-
-        [data-theme="dark"] .asset-character-card {
-            background-color: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.125);
-            margin-bottom: 10px;
-        }
-
-        [data-theme="light"] .asset-character-header {
-            background-color: #d4edda;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
-            color: #155724;
-        }
-
-        [data-theme="dark"] .asset-character-header {
-            background-color: rgba(40, 167, 69, 0.3);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.125);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .asset-character-body {
-            background-color: #fff;
-            color: #212529;
-        }
-
-        [data-theme="dark"] .asset-character-body {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-        }
-
-        /* Стили для секций локаций */
-        [data-theme="light"] .asset-location-card {
-            background-color: #fff;
-            border: 1px solid rgba(0, 0, 0, 0.125);
-            margin-bottom: 10px;
-        }
-
-        [data-theme="dark"] .asset-location-card {
-            background-color: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.125);
-            margin-bottom: 10px;
-        }
-
-        [data-theme="light"] .asset-location-header {
-            background-color: #e9ecef;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
-            color: #212529;
-        }
-
-        [data-theme="dark"] .asset-location-header {
-            background-color: var(--card-header-bg);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.125);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .asset-location-body {
-            background-color: #fff;
-            color: #212529;
-        }
-
-        [data-theme="dark"] .asset-location-body {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-        }
-
-        /* Стили для алертов по количеству */
-        [data-theme="light"] .alert-warning,
-        [data-theme="light"] .alert-warning td {
-            background-color: #fff3cd !important;
-            border-left: 4px solid #ffc107 !important;
-            color: #856404 !important;
-        }
-
-        [data-theme="dark"] .alert-warning,
-        [data-theme="dark"] .alert-warning td {
-            background-color: rgba(255, 203, 7, 0.3) !important;
-            border-left: 4px solid #ffc107 !important;
-            color: #ffeb3b !important;
-        }
-
-        [data-theme="light"] .alert-critical,
-        [data-theme="light"] .alert-critical td {
-            background-color: #f8d7da !important;
-            border-left: 4px solid #dc3545 !important;
-            color: #721c24 !important;
-        }
-
-        [data-theme="dark"] .alert-critical,
-        [data-theme="dark"] .alert-critical td {
-            background-color: rgba(220, 53, 69, 0.4) !important;
-            border-left: 4px solid #dc3545 !important;
-            color: #ff6b6b !important;
-        }
-
-        /* Стили для нулевых алертов (purple) */
-        .text-purple {
-            color: #9c27b0 !important;
-        }
-
-        [data-theme="light"] .alert-zero,
-        [data-theme="light"] .alert-zero td {
-            background-color: #f3e5f5 !important;
-            border-left: 4px solid #9c27b0 !important;
-            color: #6a1b9a !important;
-        }
-
-        [data-theme="dark"] .alert-zero,
-        [data-theme="dark"] .alert-zero td {
-            background-color: rgba(156, 39, 176, 0.2) !important;
-            border-left: 4px solid #9c27b0 !important;
-            color: #ce93d8 !important;
-        }
-
-        /* Стили для аккордеона группировки по персонажам */
-        [data-theme="light"] .accordion-theme .accordion-item-theme {
-            background-color: #fff;
-            border: 1px solid rgba(0, 0, 0, 0.125);
-            border-radius: 0.25rem;
-            margin-bottom: 0.5rem;
-        }
-
-        [data-theme="dark"] .accordion-theme .accordion-item-theme {
-            background-color: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.125);
-            border-radius: 0.25rem;
-            margin-bottom: 0.5rem;
-        }
-
-        [data-theme="light"] .accordion-button-theme {
-            background-color: #f8f9fa;
-            color: #212529;
-            border: none;
-            border-radius: 0.25rem;
-        }
-
-        [data-theme="dark"] .accordion-button-theme {
-            background-color: var(--card-header-bg);
-            color: var(--text-color);
-            border: none;
-            border-radius: 0.25rem;
-        }
-
-        [data-theme="light"] .accordion-button-theme:not(.collapsed) {
-            background-color: #e9ecef;
-            color: #212529;
-        }
-
-        [data-theme="dark"] .accordion-button-theme:not(.collapsed) {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] .accordion-button-theme:focus {
-            box-shadow: none;
-        }
-
-        [data-theme="dark"] .accordion-button-theme:focus {
-            box-shadow: none;
-        }
-
-        [data-theme="light"] .accordion-body-theme {
-            background-color: #fff;
-            color: #212529;
-            padding: 1rem;
-        }
-
-        [data-theme="dark"] .accordion-body-theme {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-            padding: 1rem;
-        }
-
-        /* Стили для контейнеров формы */
-        [data-theme="light"] .character-container,
-        [data-theme="light"] .locations-container,
-        [data-theme="light"] .flag-container,
-        [data-theme="light"] .category-container,
-        [data-theme="light"] .group-container {
-            background-color: #fff;
-            border: 1px solid #ced4da;
-            color: #212529;
-        }
-
-        [data-theme="dark"] .character-container,
-        [data-theme="dark"] .locations-container,
-        [data-theme="dark"] .flag-container,
-        [data-theme="dark"] .category-container,
-        [data-theme="dark"] .group-container {
-            background-color: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.125);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] select {
-            background-color: #fff;
-            color: #212529;
-        }
-
-        [data-theme="dark"] select {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-        }
-
-        [data-theme="light"] option {
-            background-color: #fff;
-            color: #212529;
-            padding: 5px 10px;
-        }
-
-        [data-theme="dark"] option {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-            padding: 5px 10px;
-        }
-
-        [data-theme="light"] option:hover {
-            background-color: #e9ecef;
-        }
-
-        [data-theme="dark"] option:hover {
-            background-color: var(--hover-bg);
-        }
-
-        [data-theme="light"] option:checked {
-            background-color: #0d6efd;
-            color: #fff;
-        }
-
-        [data-theme="dark"] option:checked {
-            background-color: #4dabf7;
-            color: #000;
-        }
-
-        /* Стили для различных контейнеров по размеру */
-        .character-container, .locations-container, .flag-container {
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .category-container, .group-container {
-            max-height: 150px;
-            overflow-y: auto;
-        }
-
-        .locations-container {
-            max-height: 250px;
-        }
-    </style>
-    {% endblock page_styles %}
-
-    {% block page_scripts %}
-    <script>
-        $(document).ready(function() {
-            // Поиск по названию станции
-            $('#locationSearch').on('keyup', function() {
-                const searchTerm = $(this).val().toLowerCase();
-                $('.locations-list-container select option').each(function() {
-                    const optionText = $(this).text().toLowerCase();
-                    if (optionText.includes(searchTerm)) {
-                        $(this).show();
-                    } else {
-                        $(this).hide();
+    <!-- Модальное окно для редактирования порога -->
+    <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editModalLabel">
+                        <i class="fas fa-edit"></i> Редактировать порог
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <form id="editForm" method="post" action="{% url 'observer_assets_single:edit_threshold' %}">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <input type="hidden" name="threshold_id" id="edit_threshold_id">
+                        <div class="mb-3">
+                            <label for="edit_type_name" class="form-label form-label-theme">
+                                <i class="fas fa-cube"></i> Предмет
+                            </label>
+                            <input type="text" class="form-control" id="edit_type_name" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_location" class="form-label form-label-theme">
+                                <i class="fas fa-map-marker-alt"></i> Локация
+                            </label>
+                            <select class="form-select" id="edit_location" name="location" style="width: 100%;">
+                                <option value="">Все локации</option>
+                                {% for loc in locations_list %}
+                                <option value="{{ loc.location_id }}">{{ loc.location_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_min_quantity" class="form-label form-label-theme">
+                                Минимальное количество
+                            </label>
+                            <input type="number" class="form-control" id="edit_min_quantity" name="min_quantity" min="0" required>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="edit_is_active" name="is_active" checked>
+                                <label class="form-check-label" for="edit_is_active">
+                                    Активен
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-theme" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Отмена
+                        </button>
+                        <button type="submit" class="btn btn-primary btn-theme">
+                            <i class="fas fa-save"></i> Сохранить
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!---Раздел импорта алертов из файла --->
+        <div class="row">
+        <div class="col-12">
+            <div class="card card-theme">
+                <div class="card-header card-header-theme">
+                    <h5 class="mb-0"><i class="fas fa-upload"></i> Импорт алертов из файла</h5>
+                </div>
+                <div class="card-body card-body-theme">
+                    <div class="alert alert-info alert-theme mb-3">
+                        <i class="fas fa-info-circle"></i>
+                        Загрузите JSON-файл с резервной копией алертов. Дубликаты будут обновлены, новые - добавлены. <strong>Пороги < 0 будут пропущены.</strong>
+                    </div>
+                    <div class="alert alert-warning alert-theme mb-3">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Важно:</strong> файл должен содержать корректный JSON с полем "alerts" (список объектов с type_id и min_quantity >= 0)
+                    </div>
+                    <div class="alert alert-warning alert-theme mb-3">
+                        <i class="fas fa-lightbulb"></i>
+                        <strong>Типичные ошибки импорта:</strong>
+                        <ul class="mb-0">
+                            <li>Файл не имеет расширения .json</li>
+                            <li>Содержимое не является валидным JSON</li>
+                            <li>Отсутствует поле "alerts" или оно не является списком</li>
+                            <li>type_id или min_quantity не являются числами</li>
+                        </ul>
+                    </div>
+                    <form method="post" enctype="multipart/form-data" id="importForm" action="{% url 'observer_assets_single:import_alerts' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="alerts_file" class="form-label form-label-theme">
+                                <i class="fas fa-file-upload"></i> Выберите JSON файл
+                            </label>
+                            <input type="file" class="form-control form-control-theme" id="alerts_file" name="alerts_file"
+                                   accept="application/json,.json">
+                            <small class="form-text text-muted">
+                                <i class="fas fa-info-circle"></i> Файл должен быть в формате JSON с алертами (см. пример ниже)
+                            </small>
+                            <div class="alert alert-light alert-theme mt-2 mb-0">
+                                <i class="fas fa-code"></i> <strong>Пример JSON:</strong>
+                                <pre class="mb-0" style="font-size: 0.85rem; background-color: #f8f9fa;">"version": "1.0",
+  "exported_at": "2026-07-27T12:13:46.175741",
+  "character_id": 123456789,
+  "character_name": "name-x",
+  "alerts": [
+    {
+      "type_id": 519,
+      "type_name": "Gyrostabilizer II",
+      "min_quantity": 1,
+      "is_active": true,
+      "location_id": 60003172,
+      "location_name": "Akkio 5 - Moon 6 - Caldari Funds Unlimited Vault"
+    },</pre>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-theme">
+                            <i class="fas fa-upload"></i> Загрузить алерты
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block page_scripts %}
+<script>
+$(document).ready(function($) {
+    // Инициализация Select2 для формы добавления алерта (не для модального окна)
+    if (typeof $.fn.select2 !== 'undefined') {
+        $('#alertForm select').each(function() {
+            // Проверяем, что элемент не является частью модального окна
+            if (!$(this).closest('#editModal').length) {
+                $(this).select2({
+                    placeholder: 'Выберите предмет...',
+                    allowClear: true,
+                    width: '100%',
+                    language: {
+                        noResults: function() {
+                            return 'Ничего не найдено';
+                        }
                     }
                 });
-            });
-
-            // Фокус на таблицу при загрузке
-            {% if assets %}
-            setTimeout(function() {
-                $('html, body').animate({
-                    scrollTop: $('.asset-location-section:first').offset().top - 50
-                }, 500);
-            }, 100);
-            {% endif %}
+            }
         });
-    </script>
-    {% endblock page_scripts %}
-{% endblock content %}
+        console.log('Select2 initialized for alertForm');
+    } else {
+        console.error('Select2 is not loaded!');
+    }
+    
+    // Поиск по имени предмета (простой input без выпадающего списка)
+    var searchTimeout = null;
+    $('#alertSearchInput').on('input', function() {
+        var term = $(this).val().trim();
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function() {
+            groupAndHighlightRows(term);
+        }, 200);
+    });
+
+    // Очистка поиска при нажатии Esc
+    $('#alertSearchInput').on('keydown', function(e) {
+        if (e.key === 'Escape') {
+            $(this).val('');
+            groupAndHighlightRows('');
+            $(this).blur();
+        }
+    });
+
+    function groupAndHighlightRows(term) {
+        var rows = $('#thresholdsTable tbody tr');
+        var groupedData = {};
+        var matchedCount = 0;
+
+        rows.each(function() {
+            var $row = $(this);
+            var name = $row.data('type-name') || $row.find('td:first').text().trim();
+            var termLower = term.toLowerCase();
+            var nameLower = name.toLowerCase();
+            var isMatch = !term || nameLower.indexOf(termLower) !== -1;
+
+            // Убираем подсветку
+            $row.find('td:first').html(name);
+            $row.removeClass('table-warning search-highlight-row');
+
+            if (isMatch) {
+                $row.removeClass('table-secondary');
+                matchedCount++;
+
+                // Группировка по имени предмета
+                if (!groupedData[nameLower]) {
+                    groupedData[nameLower] = [];
+                }
+                groupedData[nameLower].push($row);
+
+                // Подсветка найденного текста
+                if (term) {
+                    var highlighted = highlightText(name, term);
+                    $row.find('td:first').html(highlighted);
+                }
+            } else {
+                $row.addClass('table-secondary');
+            }
+        });
+
+        // Сортировка и группировка строк
+        var sortedGroups = Object.keys(groupedData).sort();
+        var tbody = $('#thresholdsTable tbody');
+        sortedGroups.forEach(function(groupKey) {
+            var groupRows = groupedData[groupKey];
+            groupRows.forEach(function($row) {
+                tbody.append($row);
+            });
+        });
+
+        // Показываем только совпавшие строки
+        rows.each(function() {
+            var name = $(this).data('type-name').toLowerCase();
+            var termLower = term.toLowerCase();
+            var isMatch = !term || name.indexOf(termLower) !== -1;
+            $(this).toggle(isMatch);
+        });
+
+        $('#searchCount').text(matchedCount);
+    }
+
+    function highlightText(text, term) {
+        var termLower = term.toLowerCase();
+        var textLower = text.toLowerCase();
+        var index = textLower.indexOf(termLower);
+        if (index === -1) return text;
+
+        var before = text.substring(0, index);
+        var match = text.substring(index, index + term.length);
+        var after = text.substring(index + term.length);
+
+        return before + '<span class="search-match-highlight">' + match + '</span>' + after;
+    }
+
+    // Получаем CSRF токен
+    var csrfToken = $('input[name=csrfmiddlewaretoken]').val() || '{{ csrf_token }}';
+    
+    // Обработка открытия модального окна редактирования
+    $('#editModal').on('show.bs.modal', function(event) {
+        var button = $(event.relatedTarget);
+        
+        // Отключаем поля ввода в основной форме alertForm (включая Select2)
+        var alertFormElements = $('#alertForm select, #alertForm input, #alertForm button').not('.toggle-active, [type="hidden"]');
+        alertFormElements.prop('disabled', true);
+        
+        // Скрываем контейнеры Select2 в alertForm, чтобы они не перекрывали модальное окно
+        $('#alertForm .select2-container').not('#editModal .select2-container').hide();
+        
+        var thresholdId = button.data('threshold-id');
+        var thresholdQuantity = button.data('threshold-quantity');
+        var typeName = button.data('threshold-name');
+        var thresholdActive = button.data('threshold-active');
+        var locationId = button.data('threshold-location') || '';
+        
+        var modal = $(this);
+        
+        // Устанавливаем значение поля с именем предмета
+        modal.find('#edit_type_name').val(typeName);
+        
+        // Устанавливаем значение threshold_id для отправки в форму
+        modal.find('#edit_threshold_id').val(thresholdId);
+        
+        // Инициализация Select2 для локации в модальном окне (только один раз)
+        var locationSelect = modal.find('#edit_location');
+        if (!locationSelect.data('select2')) {
+            locationSelect.select2({
+                placeholder: 'Все локации',
+                allowClear: true,
+                width: '100%',
+                dropdownParent: $('#editModal'),
+                language: {
+                    noResults: function() {
+                        return 'Ничего не найдено';
+                    }
+                }
+            });
+        }
+        
+        // Устанавливаем значение для Select2 локации
+        locationSelect.val(locationId).trigger('change');
+        
+        // Фокус на поле поиска Select2
+        setTimeout(function() {
+            var searchField = locationSelect.next('.select2-container').find('.select2-search__field');
+            if (searchField.length) {
+                searchField.focus();
+            }
+        }, 150);
+        
+        modal.find('#edit_min_quantity').val(thresholdQuantity);
+        
+        // Устанавливаем состояние чекбокса is_active
+        var is_active_checkbox = modal.find('#edit_is_active');
+        if (thresholdActive === true || thresholdActive === 'true') {
+            is_active_checkbox.prop('checked', true);
+        } else {
+            is_active_checkbox.prop('checked', false);
+        }
+    });
+    
+    // Обработка закрытия модального окна - включаем поля в alertForm обратно
+    $('#editModal').on('hidden.bs.modal', function(event) {
+        // Очищаем поля модального окна
+        $(this).find('#edit_threshold_id').val('');
+        $(this).find('#edit_type_name').val('');
+        $(this).find('#edit_min_quantity').val('');
+        $(this).find('#edit_is_active').prop('checked', true);
+        
+        // Очищаем Select2 для локации в модальном окне
+        var locationSelect = $(this).find('#edit_location');
+        locationSelect.val('').trigger('change');
+        // Закрываем выпадающий список Select2
+        if (locationSelect.data('select2')) {
+            locationSelect.select2('close');
+        }
+        // Включаем поля в alertForm обратно (включая Select2)
+        var alertFormElements = $('#alertForm select, #alertForm input, #alertForm button').not('.toggle-active, [type="hidden"]');
+        alertFormElements.prop('disabled', false);
+        
+        // Показываем контейнеры Select2 в alertForm обратно
+        $('#alertForm .select2-container').not('#editModal .select2-container').show();
+    });
+    
+    // Обработка переключения активности алерта через чекбокс
+    $(document).on('change', '.toggle-active', function() {
+        var checkbox = $(this);
+        var thresholdId = checkbox.data('threshold-id');
+        var toggleUrl = checkbox.data('toggle-url');
+        var isChecked = checkbox.is(':checked');
+        
+        if (!toggleUrl) {
+            console.error('Toggle URL не найден');
+            checkbox.prop('checked', !isChecked);
+            return;
+        }
+        
+        // Отправляем AJAX запрос для переключения активности
+        $.ajax({
+            url: toggleUrl,
+            type: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    console.log('Алерт переключен:', response.is_active);
+                    // Обновляем класс строки в зависимости от статуса
+                    var row = checkbox.closest('tr');
+                    if (!response.is_active) {
+                        row.addClass('table-secondary');
+                    } else {
+                        row.removeClass('table-secondary');
+                    }
+                } else {
+                    // Ошибка - откатываем изменение
+                    checkbox.prop('checked', !isChecked);
+                    alert('Ошибка при переключении алерта: ' + response.error);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX error:', status, error);
+                // Ошибка - откатываем изменение
+                checkbox.prop('checked', !isChecked);
+                alert('Ошибка при переключении алерта: ' + error);
+            }
+        });
+    });
+
+});
+</script>
+{% endblock page_scripts %}
