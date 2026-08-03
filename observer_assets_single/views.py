@@ -337,6 +337,19 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location):
                 
                 # Если ассета НЕТ — это zero alert, добавляем placeholder
                 if not type_name:
+                    # Получаем объект AlertThreshold для old_min_quantity
+                    try:
+                        alert_threshold = AlertThreshold.objects.get(
+                            character=character,
+                            type_id=type_id,
+                            location__location_id=location_id
+                        )
+                        old_min_quantity = alert_threshold.old_min_quantity
+                    except AlertThreshold.DoesNotExist:
+                        old_min_quantity = None
+                    except Exception:
+                        old_min_quantity = None
+                    
                     try:
                         item_type = EveItemType.objects.get(type_id=type_id)
                         type_name = item_type.type_name or f"Type ID: {type_id}"
@@ -348,6 +361,7 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location):
                         'type_name': type_name,
                         'location_id': location_id,
                         'threshold': int(threshold),
+                        'old_min_quantity': old_min_quantity,
                     })
     
     zero_alerts.sort(key=lambda x: x['type_name'])
@@ -674,6 +688,7 @@ def alert_settings(request):
                     # Если алерт уже существует - обновляем его
                     existing_threshold.min_quantity = min_quantity
                     existing_threshold.is_active = is_active
+                    existing_threshold.old_min_quantity = min_quantity
                     existing_threshold.save()
                     location_name = location.location_name if location else "Все локации"
                     messages.success(request, f'Порог алерта для "{type_id_obj.type_name}" в локации "{location_name}" успешно обновлен на {min_quantity}!')
@@ -682,6 +697,7 @@ def alert_settings(request):
                     threshold = form.save(commit=False)
                     threshold.character = main_character
                     threshold.is_active = is_active
+                    threshold.old_min_quantity = min_quantity
                     logger.info(f"Saving threshold: character={main_character.name}, type_id={threshold.type_id}, location={threshold.location}, min_quantity={threshold.min_quantity}, is_active={threshold.is_active}")
                     threshold.save()
                     location_name = location.location_name if location else "Все локации"
@@ -849,6 +865,8 @@ def edit_threshold(request):
             threshold = AlertThreshold.objects.get(id=threshold_id, character=main_character)
             threshold.min_quantity = min_quantity
             threshold.is_active = is_active
+            if min_quantity > 0:
+                threshold.old_min_quantity = min_quantity
             
             # Обновляем локацию, если она указана
             if location_id and location_id != '':
@@ -1053,7 +1071,7 @@ def parser_assets(assets, character):
                     # Восстанавливаем порог на исходное значение (например, 100) или дефолтное
                     # Для простоты восстанавливаем на 1 (минимальное значение > 0)
                     # Пользователь может изменить его позже
-                    alert.min_quantity = 1
+                    alert.min_quantity = alert.old_min_quantity
                     alert.is_active = True
                     alert.save()
                     logger.info(f"Алерт с порогом 0 активирован для предмета '{item_type.type_name}' (type_id={item_type.type_id}) в локации '{location.location_name}' (location_id={location.location_id}), порог восстановлен на 1")
@@ -1141,6 +1159,7 @@ def export_alerts(request):
             'type_id': threshold.type_id.type_id,
             'type_name': threshold.type_id.type_name,
             'min_quantity': threshold.min_quantity,
+            'old_min_quantity': threshold.old_min_quantity,
             'is_active': threshold.is_active,
             'location_id': threshold.location_id,
             'location_name': threshold.location.location_name if threshold.location else None
@@ -1282,6 +1301,7 @@ def import_alerts(request):
                     
                     type_id = alert_data.get('type_id')
                     min_quantity = alert_data.get('min_quantity')
+                    old_min_quantity = alert_data.get('old_min_quantity')
                     
                     # Проверка типов type_id и min_quantity
                     if type_id is None or not isinstance(type_id, (int, float)):
@@ -1330,6 +1350,7 @@ def import_alerts(request):
                     if existing_threshold:
                         # Обновляем существующий
                         existing_threshold.min_quantity = min_quantity
+                        existing_threshold.old_min_quantity = old_min_quantity
                         existing_threshold.is_active = is_active  # Сохраняем статус активности
                         existing_threshold.save()
                         updated_count += 1
@@ -1339,6 +1360,7 @@ def import_alerts(request):
                             character=main_character,
                             type_id=item_type,
                             min_quantity=min_quantity,
+                            old_min_quantity=old_min_quantity,
                             is_active=is_active,
                             location_id=location_id,
                         )

@@ -283,6 +283,19 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location, al
                 # Добавляем строку-заглушку с quantity=0
                 if not type_name:
                     # Получаем имя типа из БД
+                    # Получаем объект AlertThreshold для old_min_quantity
+                    try:
+                        alert_threshold = AlertThreshold.objects.get(
+                            character=character,
+                            type_id=type_id,
+                            location__location_id=location_id
+                        )
+                        old_min_quantity = alert_threshold.old_min_quantity
+                    except AlertThreshold.DoesNotExist:
+                        old_min_quantity = None
+                    except Exception:
+                        old_min_quantity = None
+
                     try:
                         item_type = EveItemType.objects.get(type_id=type_id)
                         type_name = item_type.type_name or f"Type ID: {type_id}"
@@ -304,6 +317,7 @@ def build_location_hierarchy(assets, character, alert_thresholds_by_location, al
                         'type_name': type_name,
                         'location_id': location_id,
                         'threshold': int(threshold),
+                        'old_min_quantity': old_min_quantity,
                         'notes': placeholder_notes,
                         'item_id': None,  # ассета нет, item_id = None
                         'is_placeholder': True,  # это заглушка, реального ассета нет

@@ -261,6 +261,7 @@
                                                                                 <th>Порог</th>
                                                                                 <th>Алерт</th>
                                                                                 <th>Заметки</th>
+                                                                                <th>Ранее выставленный порог</th>
                                                                             </tr>
                                                                         </thead>
                                                                         <tbody>
@@ -283,6 +284,7 @@
                                                                                         rows="1" 
                                                                                         placeholder="Заметки...">{{ zero_alert.notes|default:"" }}</textarea>
                                                                                 </td>
+                                                                                <td>{{ zero_alert.old_min_quantity|default:"" }}</td>
                                                                             </tr>
                                                                             {% endfor %}
                                                                         </tbody>

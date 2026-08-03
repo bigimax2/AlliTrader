@@ -137,6 +137,7 @@ class AlertThreshold(models.Model):
     is_active = models.BooleanField(default=True, help_text="Активен ли алерт")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    old_min_quantity = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Порог алерта"
