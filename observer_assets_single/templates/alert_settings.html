@@ -152,6 +152,7 @@
                                             <th>Группа</th>
                                             <th>Категория</th>
                                             <th>Мин. кол-во</th>
+                                            <th>сохранённый порог</th>
                                             <th>Активен</th>
                                             <th>Действия</th>
                                         </tr>
@@ -164,6 +165,7 @@
                                             <td>{{ threshold.group_name|default:"-" }}</td>
                                             <td>{{ threshold.category_name|default:"-" }}</td>
                                             <td id="quantity-{{ threshold.id }}">{{ threshold.min_quantity }}</td>
+                                            <td>{{ threshold.old_min_quantity|default:"-" }}</td>
                                             <td>
                                                 <div class="form-check">
                                                     <input class="form-check-input toggle-active" type="checkbox" 

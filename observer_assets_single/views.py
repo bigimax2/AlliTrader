@@ -738,6 +738,7 @@ def alert_settings(request):
             'min_quantity': at.min_quantity,
             'is_active': at.is_active,
             'created_at': at.created_at,
+            'old_min_quantity': at.old_min_quantity,
         })
     
     # Сортируем по имени предмета по алфавиту
