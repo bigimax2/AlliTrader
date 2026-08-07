@@ -159,7 +159,7 @@
                                     </thead>
                                     <tbody>
                                         {% for threshold in thresholds_list %}
-                                        <tr id="threshold-{{ threshold.id }}" data-type-name="{{ threshold.type_name|escapejs }}" class="{% if not threshold.is_active %}table-secondary{% endif %} {% if threshold.min_quantity == 0 %}table-danger{% endif %}">
+                                        <tr id="threshold-{{ threshold.id }}" data-type-name="{{ threshold.type_name }}" class="{% if not threshold.is_active %}table-secondary{% endif %} {% if threshold.min_quantity == 0 %}table-danger{% endif %}">
                                             <td>{{ threshold.type_name }}</td>
                                             <td>{{ threshold.location_name }}</td>
                                             <td>{{ threshold.group_name|default:"-" }}</td>
@@ -175,7 +175,7 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <button type="button" class="btn btn-sm btn-primary btn-theme edit-threshold" data-threshold-id="{{ threshold.id }}" data-threshold-quantity="{{ threshold.min_quantity }}" data-threshold-name="{{ threshold.type_name|escapejs }}" data-threshold-active="{{ threshold.is_active }}" data-threshold-location="{{ threshold.location_id|default:'' }}" data-bs-toggle="modal" data-bs-target="#editModal">
+                                                <button type="button" class="btn btn-sm btn-primary btn-theme edit-threshold" data-threshold-id="{{ threshold.id }}" data-threshold-quantity="{{ threshold.min_quantity }}" data-threshold-name="{{ threshold.type_name }}" data-threshold-active="{{ threshold.is_active }}" data-threshold-location="{{ threshold.location_id|default:'' }}" data-bs-toggle="modal" data-bs-target="#editModal">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
                                                 <form method="post" action="{% url 'observer_assets_single:delete_threshold' %}" style="display: inline;" onsubmit="return confirm('Вы уверены, что хотите удалить этот порог?');">
@@ -306,12 +306,13 @@
   "character_name": "name-x",
   "alerts": [
     {
-      "type_id": 519,
-      "type_name": "Gyrostabilizer II",
-      "min_quantity": 1,
+      "type_id": 4403,
+      "type_name": "Reactive Armor Hardener",
+      "min_quantity": 5,
+      "old_min_quantity": 5,
       "is_active": true,
-      "location_id": 60003172,
-      "location_name": "Akkio 5 - Moon 6 - Caldari Funds Unlimited Vault"
+      "location_id": 60015060,
+      "location_name": "Kamela 5 - 24th Imperial Crusade Logistic Support"
     },</pre>
                             </div>
                         </div>
@@ -377,7 +378,7 @@ $(document).ready(function($) {
 
         rows.each(function() {
             var $row = $(this);
-            var name = $row.data('type-name') || $row.find('td:first').text().trim();
+            var name = $row.attr('data-type-name') || $row.find('td:first').text().trim();
             var termLower = term.toLowerCase();
             var nameLower = name.toLowerCase();
             var isMatch = !term || nameLower.indexOf(termLower) !== -1;
@@ -418,7 +419,7 @@ $(document).ready(function($) {
 
         // Показываем только совпавшие строки
         rows.each(function() {
-            var name = $(this).data('type-name').toLowerCase();
+            var name = $(this).attr('data-type-name').toLowerCase();
             var termLower = term.toLowerCase();
             var isMatch = !term || name.indexOf(termLower) !== -1;
             $(this).toggle(isMatch);
@@ -454,11 +455,11 @@ $(document).ready(function($) {
         // Скрываем контейнеры Select2 в alertForm, чтобы они не перекрывали модальное окно
         $('#alertForm .select2-container').not('#editModal .select2-container').hide();
         
-        var thresholdId = button.data('threshold-id');
-        var thresholdQuantity = button.data('threshold-quantity');
-        var typeName = button.data('threshold-name');
-        var thresholdActive = button.data('threshold-active');
-        var locationId = button.data('threshold-location') || '';
+        var thresholdId = button.attr('data-threshold-id');
+        var thresholdQuantity = button.attr('data-threshold-quantity');
+        var typeName = button.attr('data-threshold-name');
+        var thresholdActive = button.attr('data-threshold-active');
+        var locationId = button.attr('data-threshold-location') || '';
         
         var modal = $(this);
         

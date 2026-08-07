@@ -78,3 +78,5 @@ scripts/*.key
 /observer_assets_single/migrations/
 /observer_assets_all/migrations/
 /traders/migrations/
+/111.json
+/update_alerts.py
